@@ -1,0 +1,21 @@
+{
+  "name": "flowcast",
+  "version": "1.0.0",
+  "description": "Audio cue playback for live events — Visual Entropy Productions",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac:dir": "electron-builder --mac --dir",
+    "build:win": "electron-builder --win --dir",
+    "pack": "electron-builder --dir",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.0"
+  }
+}

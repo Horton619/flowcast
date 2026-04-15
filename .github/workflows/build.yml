@@ -1,0 +1,139 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ── macOS ──────────────────────────────────────────────────────────────────
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: |
+          python3 -m venv backend/venv
+          backend/venv/bin/pip install --upgrade pip
+          backend/venv/bin/pip install -r backend/requirements.txt
+          backend/venv/bin/pip install pyinstaller
+
+      - name: Build Python backend (macOS)
+        run: |
+          cd backend
+          ../backend/venv/bin/pyinstaller \
+            --onefile \
+            --name flowcast_backend \
+            --distpath dist \
+            main.py
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Build app — arm64 (unpackaged)
+        run: npx electron-builder --mac --arm64 --dir
+
+      - name: Build app — x64 (unpackaged)
+        run: npx electron-builder --mac --x64 --dir
+
+      - name: Ad-hoc sign arm64
+        run: |
+          codesign --deep --force --sign - "dist/mac-arm64/FlowCast.app"
+
+      - name: Ad-hoc sign x64
+        run: |
+          codesign --deep --force --sign - "dist/mac/FlowCast.app"
+
+      - name: Package arm64 DMG
+        run: |
+          npx electron-builder --mac --arm64 \
+            --prepackaged "dist/mac-arm64/FlowCast.app"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package x64 DMG
+        run: |
+          npx electron-builder --mac --x64 \
+            --prepackaged "dist/mac/FlowCast.app"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Release (draft)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          gh release create "$TAG" dist/*.dmg \
+            --title "FlowCast $TAG" \
+            --notes "## FlowCast $TAG
+
+          ### macOS — first launch
+          macOS will show 'unidentified developer' on first open.
+          Go to **System Settings → Privacy & Security → Open Anyway**.
+
+          ### Windows
+          See attached installer." \
+            --draft
+
+  # ── Windows ────────────────────────────────────────────────────────────────
+  windows:
+    runs-on: windows-latest
+    needs: mac
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        shell: bash
+        run: |
+          python -m venv backend/venv
+          backend/venv/Scripts/pip install --upgrade pip
+          backend/venv/Scripts/pip install -r backend/requirements.txt
+          backend/venv/Scripts/pip install pyinstaller
+
+      - name: Build Python backend (Windows)
+        shell: bash
+        run: |
+          cd backend
+          ../backend/venv/Scripts/pyinstaller \
+            --onefile \
+            --name flowcast_backend \
+            --distpath dist \
+            main.py
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Build & publish Windows installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always
+
+      - name: Publish release (un-draft + mark latest)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          gh release edit "$TAG" --draft=false --latest

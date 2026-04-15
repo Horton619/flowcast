@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowCast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;900&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header-logo">
+      <svg width="130" height="32" viewBox="0 0 130 32" fill="none">
+        <!-- Play Triangle icon: 7 bars ascending -->
+        <rect x="0"  y="14" width="4" height="4"  rx="2" fill="#3d7eff" opacity="0.18"/>
+        <rect x="5"  y="12" width="4" height="8"  rx="2" fill="#3d7eff" opacity="0.30"/>
+        <rect x="10" y="10" width="4" height="12" rx="2" fill="#3d7eff" opacity="0.44"/>
+        <rect x="15" y="7"  width="4" height="18" rx="2" fill="#3d7eff" opacity="0.58"/>
+        <rect x="20" y="4"  width="4" height="24" rx="2" fill="#3d7eff" opacity="0.74"/>
+        <rect x="25" y="1"  width="4" height="30" rx="2" fill="#3d7eff" opacity="0.88"/>
+        <rect x="30" y="0"  width="4" height="32" rx="2" fill="#3d7eff"/>
+        <!-- Wordmark -->
+        <text font-family="'DM Sans',sans-serif" font-size="20" letter-spacing="-0.5" y="24" x="40">
+          <tspan font-weight="900" fill="#dde2f0">flow</tspan><tspan font-weight="300" fill="#3d7eff">cast</tspan>
+        </text>
+      </svg>
+    </div>
+
+    <div class="header-transport">
+      <button class="btn-go" id="btn-go" title="GO (Space)">GO</button>
+      <div class="transport-secondary">
+        <button class="btn-transport btn-stop" id="btn-stop" title="Stop All (Escape)">
+          <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="1.5" fill="currentColor"/></svg>
+          Stop
+        </button>
+        <button class="btn-transport btn-pause" id="btn-pause" title="Pause All">
+          <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="3.5" height="10" rx="1.5" fill="currentColor"/><rect x="7.5" y="1" width="3.5" height="10" rx="1.5" fill="currentColor"/></svg>
+          Pause
+        </button>
+        <button class="btn-transport btn-panic" id="btn-panic" title="Panic — Hard Stop (Cmd+.)">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 1L11 10H1L6 1Z" fill="currentColor"/></svg>
+          Panic
+        </button>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="osc-status" id="osc-status" title="OSC server status">
+        <span class="osc-dot" id="osc-dot"></span>
+        <span class="osc-label">OSC :53000</span>
+      </div>
+      <div class="project-name" id="project-name-display">Untitled</div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════
+       MAIN AREA
+  ══════════════════════════════════════════════════ -->
+  <div class="main-area" id="main-area">
+
+    <!-- ── CUE LIST ── -->
+    <div class="cue-list-section" id="cue-list-section">
+      <div class="cue-list-toolbar">
+        <button class="toolbar-btn" id="btn-add-cue" title="Add audio cue (Cmd+N)">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Add Cue
+        </button>
+        <button class="toolbar-btn" id="btn-import-audio" title="Import audio files">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 9h8M6 1v6M3.5 4L6 7l2.5-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Import Audio
+        </button>
+        <div class="toolbar-sep"></div>
+        <button class="toolbar-btn toolbar-btn-danger" id="btn-delete-cue" title="Delete selected cue (Delete)" disabled>
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 3h8M5 3V2h2v1M4 3v6.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Delete
+        </button>
+      </div>
+
+      <div class="cue-list-scroll" id="cue-list-scroll">
+        <table class="cue-table" id="cue-table">
+          <thead>
+            <tr>
+              <th class="col-status-icon"></th>
+              <th class="col-num">#</th>
+              <th class="col-name">Name</th>
+              <th class="col-prewait">Pre-wait</th>
+              <th class="col-duration">Duration</th>
+              <th class="col-continue" title="Continue mode">↻</th>
+            </tr>
+          </thead>
+          <tbody id="cue-tbody">
+            <!-- populated by renderer.js -->
+          </tbody>
+        </table>
+
+        <div class="cue-list-empty" id="cue-list-empty">
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <rect x="4" y="16" width="6" height="24" rx="3" fill="#3d7eff" opacity="0.2"/>
+              <rect x="13" y="10" width="6" height="30" rx="3" fill="#3d7eff" opacity="0.35"/>
+              <rect x="22" y="4"  width="6" height="36" rx="3" fill="#3d7eff" opacity="0.55"/>
+              <rect x="31" y="10" width="6" height="30" rx="3" fill="#3d7eff" opacity="0.35"/>
+              <rect x="40" y="16" width="6" height="24" rx="3" fill="#3d7eff" opacity="0.2"/>
+            </svg>
+          </div>
+          <div class="empty-title">No cues yet</div>
+          <div class="empty-sub">Click <strong>Import Audio</strong> or drag files here to build your cue stack</div>
+        </div>
+      </div>
+
+      <!-- Drop overlay -->
+      <div class="drop-overlay" id="drop-overlay">
+        <div class="drop-overlay-inner">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><path d="M20 4v24M10 16l10 12 10-12" stroke="#3d7eff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 32h28" stroke="#3d7eff" stroke-width="2.5" stroke-linecap="round"/></svg>
+          <span>Drop audio files to add cues</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RESIZE HANDLE ── -->
+    <div class="resize-handle" id="resize-handle"></div>
+
+    <!-- ── INSPECTOR ── -->
+    <div class="inspector" id="inspector">
+      <div class="inspector-header">
+        <div class="inspector-tabs" id="inspector-tabs">
+          <button class="tab-btn active" data-tab="basics">Basics</button>
+          <button class="tab-btn" data-tab="time">Time</button>
+          <button class="tab-btn" data-tab="audio">Audio</button>
+        </div>
+        <div class="inspector-cue-label" id="inspector-cue-label">No cue selected</div>
+      </div>
+
+      <div class="inspector-body">
+
+        <!-- BASICS TAB -->
+        <div class="tab-panel active" id="tab-basics">
+          <div class="inspector-empty" id="basics-empty">
+            <span>Select a cue to edit its properties</span>
+          </div>
+          <div class="inspector-form" id="basics-form" style="display:none">
+            <div class="form-row">
+              <div class="form-group form-group-sm">
+                <label class="form-label">Cue #</label>
+                <input class="form-input form-input-mono" id="inp-cue-number" type="text" maxlength="20">
+              </div>
+              <div class="form-group form-group-grow">
+                <label class="form-label">Name</label>
+                <input class="form-input" id="inp-cue-name" type="text">
+              </div>
+              <div class="form-group form-group-sm">
+                <label class="form-label">Color</label>
+                <div class="color-picker" id="color-picker">
+                  <div class="color-swatch selected" data-color="none" style="background:transparent;border:1.5px solid #4a5068"></div>
+                  <div class="color-swatch" data-color="red"    style="background:#ff4757"></div>
+                  <div class="color-swatch" data-color="orange" style="background:#ff8c00"></div>
+                  <div class="color-swatch" data-color="yellow" style="background:#ffb800"></div>
+                  <div class="color-swatch" data-color="green"  style="background:#00d97e"></div>
+                  <div class="color-swatch" data-color="blue"   style="background:#3d7eff"></div>
+                  <div class="color-swatch" data-color="purple" style="background:#a855f7"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Continue Mode</label>
+                <div class="segmented" id="continue-mode">
+                  <button class="seg-btn active" data-mode="none">Do Nothing</button>
+                  <button class="seg-btn" data-mode="auto-continue">Auto-Continue</button>
+                  <button class="seg-btn" data-mode="auto-follow">Auto-Follow</button>
+                </div>
+              </div>
+              <div class="form-group form-group-sm">
+                <label class="form-label">Pre-wait</label>
+                <div class="input-with-unit">
+                  <input class="form-input form-input-mono" id="inp-prewait" type="number" min="0" step="0.1" value="0">
+                  <span class="input-unit">s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">File</label>
+                <div class="file-path-display" id="cue-file-path">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TIME TAB -->
+        <div class="tab-panel" id="tab-time">
+          <div class="inspector-empty" id="time-empty">
+            <span>Select a cue to edit timing</span>
+          </div>
+          <div class="inspector-form" id="time-form" style="display:none">
+            <div class="waveform-area">
+              <canvas class="waveform-canvas" id="waveform-canvas"></canvas>
+              <div class="waveform-no-file" id="waveform-no-file">No audio file loaded</div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">In Point <kbd>I</kbd></label>
+                <div class="input-with-unit">
+                  <input class="form-input form-input-mono" id="inp-in-point" type="text" placeholder="0:00.000">
+                  <span class="input-unit">s</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Out Point <kbd>O</kbd></label>
+                <div class="input-with-unit">
+                  <input class="form-input form-input-mono" id="inp-out-point" type="text" placeholder="—">
+                  <span class="input-unit">s</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Duration</label>
+                <div class="form-input form-input-mono form-input-readonly" id="disp-duration">—</div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Fade In</label>
+                <div class="input-with-unit">
+                  <input class="form-input form-input-mono" id="inp-fade-in" type="number" min="0" step="0.1" value="0">
+                  <span class="input-unit">s</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fade Out</label>
+                <div class="input-with-unit">
+                  <input class="form-input form-input-mono" id="inp-fade-out" type="number" min="0" step="0.1" value="0">
+                  <span class="input-unit">s</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AUDIO TAB -->
+        <div class="tab-panel" id="tab-audio">
+          <div class="inspector-empty" id="audio-empty">
+            <span>Select a cue to edit audio settings</span>
+          </div>
+          <div class="inspector-form" id="audio-form" style="display:none">
+            <div class="form-row">
+              <div class="form-group form-group-grow">
+                <label class="form-label">Volume</label>
+                <div class="slider-row">
+                  <input class="range-slider" id="slider-volume" type="range" min="-60" max="12" step="0.5" value="0">
+                  <div class="input-with-unit">
+                    <input class="form-input form-input-mono form-input-sm" id="inp-volume" type="number" min="-60" max="12" step="0.5" value="0">
+                    <span class="input-unit">dB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group form-group-grow">
+                <label class="form-label">Pan</label>
+                <div class="slider-row">
+                  <span class="slider-label-end">L</span>
+                  <input class="range-slider" id="slider-pan" type="range" min="-1" max="1" step="0.05" value="0">
+                  <span class="slider-label-end">R</span>
+                  <div class="input-with-unit">
+                    <input class="form-input form-input-mono form-input-sm" id="inp-pan" type="number" min="-1" max="1" step="0.05" value="0">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group form-group-grow">
+                <label class="form-label">Output Device</label>
+                <select class="form-select" id="select-output-device">
+                  <option value="">System Default</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /inspector-body -->
+    </div><!-- /inspector -->
+
+  </div><!-- /main-area -->
+
+  <!-- ══════════════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <span>© 2026 Visual Entropy Productions</span>
+    <a href="#" class="footer-link" id="footer-link">veproductions.net</a>
+  </footer>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
