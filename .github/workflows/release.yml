@@ -10,9 +10,9 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # macOS arm64 — DMG
+  # macOS arm64 — builds on Apple Silicon runner. Native PyInstaller arm64.
   # ---------------------------------------------------------------------------
-  release-mac:
+  release-mac-arm64:
     runs-on: macos-latest
 
     steps:
@@ -35,7 +35,7 @@ jobs:
           pip install --upgrade pip
           pip install pyinstaller sounddevice soundfile numpy python-osc
 
-      - name: Build PyInstaller backend (Mac arm64)
+      - name: Build PyInstaller backend (arm64)
         run: |
           cd backend
           pyinstaller --clean main.spec
@@ -62,12 +62,65 @@ jobs:
         run: npx electron-builder --mac dmg --arm64 --prepackaged dist/mac-arm64 --publish always
 
   # ---------------------------------------------------------------------------
+  # macOS x64 — builds on Intel runner so PyInstaller produces a real x86_64
+  # binary instead of shipping arm64 inside the Intel DMG.
+  # ---------------------------------------------------------------------------
+  release-mac-x64:
+    runs-on: macos-13
+    needs: release-mac-arm64   # arm64 job creates the draft Release first
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyinstaller sounddevice soundfile numpy python-osc
+
+      - name: Build PyInstaller backend (x64)
+        run: |
+          cd backend
+          pyinstaller --clean main.spec
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build unpackaged app (x64)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac --dir --x64
+
+      - name: Ad-hoc code sign
+        run: |
+          find dist -name "FlowCast.app" -maxdepth 3 | while read app; do
+            echo "Signing: $app"
+            codesign --deep --force --sign - "$app"
+          done
+
+      - name: Package & publish x64 DMG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac dmg --x64 --prepackaged dist/mac-x64 --publish always
+
+  # ---------------------------------------------------------------------------
   # Windows x64 — NSIS installer
   # ---------------------------------------------------------------------------
   release-win:
     runs-on: windows-latest
-    # Run after mac so the GitHub Release already exists when we upload
-    needs: release-mac
+    needs: [release-mac-arm64, release-mac-x64]
 
     steps:
       - name: Checkout
