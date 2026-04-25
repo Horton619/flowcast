@@ -3,13 +3,23 @@
   "version": "1.0.0",
   "description": "Audio cue playback for live events — Visual Entropy Productions",
   "main": "main.js",
+  "homepage": "https://veproductions.net",
+  "author": {
+    "name": "Visual Entropy Productions"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Horton619/flowcast.git"
+  },
   "scripts": {
     "start": "electron .",
     "build:mac:dir": "electron-builder --mac --dir",
     "build:win": "electron-builder --win --dir",
     "pack": "electron-builder --dir",
     "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "release:mac": "electron-builder --mac --publish always",
+    "release:win": "electron-builder --win --publish always"
   },
   "devDependencies": {
     "electron": "^29.0.0",
@@ -17,5 +27,51 @@
   },
   "dependencies": {
     "electron-updater": "^6.1.0"
+  },
+  "build": {
+    "appId": "net.veproductions.flowcast",
+    "productName": "FlowCast",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "backend/dist/**/*",
+      "!backend/venv/**/*",
+      "!backend/__pycache__/**/*",
+      "!**/.DS_Store",
+      "!**/*.flowcast"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Horton619",
+        "repo": "flowcast"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ],
+      "identity": null,
+      "extraResources": [
+        { "from": "backend/dist/main", "to": "backend/main" }
+      ]
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "extraResources": [
+        { "from": "backend/dist/main.exe", "to": "backend/main.exe" }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

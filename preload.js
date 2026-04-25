@@ -17,7 +17,20 @@ contextBridge.exposeInMainWorld('flowcast', {
 
   // App menu events
   onMenuEvent: (cb) => {
-    const events = ['menu-new-project', 'menu-open-project', 'menu-save-project', 'menu-save-project-as']
+    const events = ['menu-new-project', 'menu-open-project', 'menu-save-project', 'menu-save-project-as', 'menu-save-and-quit']
     events.forEach(ev => ipcRenderer.on(ev, () => cb(ev)))
-  }
+  },
+
+  // Signal to main process that renderer is ready to receive backend messages
+  rendererReady: () => ipcRenderer.invoke('renderer-ready'),
+
+  // Push dirty-state changes so main.js can prompt before close
+  setDirty: (dirty) => ipcRenderer.invoke('set-dirty', dirty),
+
+  // Tell main to proceed with quit after a successful Save & Quit
+  quitNow: () => ipcRenderer.invoke('quit-now'),
+
+  // App / updates
+  getAppVersion:    () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates:  () => ipcRenderer.invoke('check-for-updates')
 })

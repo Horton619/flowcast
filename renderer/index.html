@@ -16,17 +16,23 @@
   ══════════════════════════════════════════════════ -->
   <header class="header">
     <div class="header-logo">
-      <svg width="130" height="32" viewBox="0 0 130 32" fill="none">
-        <!-- Play Triangle icon: 7 bars ascending -->
-        <rect x="0"  y="14" width="4" height="4"  rx="2" fill="#3d7eff" opacity="0.18"/>
-        <rect x="5"  y="12" width="4" height="8"  rx="2" fill="#3d7eff" opacity="0.30"/>
-        <rect x="10" y="10" width="4" height="12" rx="2" fill="#3d7eff" opacity="0.44"/>
-        <rect x="15" y="7"  width="4" height="18" rx="2" fill="#3d7eff" opacity="0.58"/>
-        <rect x="20" y="4"  width="4" height="24" rx="2" fill="#3d7eff" opacity="0.74"/>
-        <rect x="25" y="1"  width="4" height="30" rx="2" fill="#3d7eff" opacity="0.88"/>
-        <rect x="30" y="0"  width="4" height="32" rx="2" fill="#3d7eff"/>
+      <svg width="148" height="30" viewBox="0 0 148 30" fill="none">
+        <!-- A1 Diamond: 13 bars, symmetric peak at center -->
+        <rect x="0"  y="13" width="3" height="4"  rx="1.5" fill="#3d7eff" opacity="0.18"/>
+        <rect x="4"  y="11" width="3" height="8"  rx="1.5" fill="#3d7eff" opacity="0.28"/>
+        <rect x="8"  y="9"  width="3" height="12" rx="1.5" fill="#3d7eff" opacity="0.40"/>
+        <rect x="12" y="6"  width="3" height="18" rx="1.5" fill="#3d7eff" opacity="0.54"/>
+        <rect x="16" y="3"  width="3" height="24" rx="1.5" fill="#3d7eff" opacity="0.68"/>
+        <rect x="20" y="1"  width="3" height="28" rx="1.5" fill="#3d7eff" opacity="0.84"/>
+        <rect x="24" y="0"  width="3" height="30" rx="1.5" fill="#3d7eff"/>
+        <rect x="28" y="1"  width="3" height="28" rx="1.5" fill="#3d7eff" opacity="0.84"/>
+        <rect x="32" y="3"  width="3" height="24" rx="1.5" fill="#3d7eff" opacity="0.68"/>
+        <rect x="36" y="6"  width="3" height="18" rx="1.5" fill="#3d7eff" opacity="0.54"/>
+        <rect x="40" y="9"  width="3" height="12" rx="1.5" fill="#3d7eff" opacity="0.40"/>
+        <rect x="44" y="11" width="3" height="8"  rx="1.5" fill="#3d7eff" opacity="0.28"/>
+        <rect x="48" y="13" width="3" height="4"  rx="1.5" fill="#3d7eff" opacity="0.18"/>
         <!-- Wordmark -->
-        <text font-family="'DM Sans',sans-serif" font-size="20" letter-spacing="-0.5" y="24" x="40">
+        <text font-family="'DM Sans',sans-serif" font-size="21" letter-spacing="-0.6" y="23" x="58">
           <tspan font-weight="900" fill="#dde2f0">flow</tspan><tspan font-weight="300" fill="#3d7eff">cast</tspan>
         </text>
       </svg>
@@ -51,23 +57,194 @@
     </div>
 
     <div class="header-right">
-      <div class="osc-status" id="osc-status" title="OSC server status">
+      <div class="osc-status" id="osc-status" title="Click to configure OSC">
         <span class="osc-dot" id="osc-dot"></span>
-        <span class="osc-label">OSC :53000</span>
+        <span class="osc-label" id="osc-label">OSC :53000</span>
+      </div>
+
+      <!-- ── OSC POPOVER ── -->
+      <div class="osc-popover" id="osc-popover" style="display:none">
+        <div class="settings-title">OSC / QLab Control</div>
+
+        <div class="osc-status-row">
+          <span class="osc-pop-dot" id="osc-pop-dot"></span>
+          <span id="osc-pop-status-text">Not connected</span>
+          <button class="btn-osc-restart" id="btn-osc-restart" title="Restart OSC server">↺ Restart</button>
+        </div>
+
+        <div class="settings-section" style="margin-top:10px">
+          <div class="settings-row">
+            <label class="settings-label">Listen Port</label>
+            <div class="input-with-unit" style="width:110px">
+              <input class="form-input form-input-mono" id="osc-inp-port" type="number" min="1024" max="65535" value="53000">
+            </div>
+          </div>
+          <div class="settings-row" style="margin-top:8px">
+            <label class="settings-label">Passcode</label>
+            <input class="form-input form-input-mono" id="osc-inp-passcode" type="text" placeholder="optional" style="width:110px">
+          </div>
+        </div>
+
+        <div class="settings-section" style="margin-top:2px">
+          <div class="settings-title" style="margin-bottom:6px">Feedback Target</div>
+          <div class="osc-info-note">Companion connects back to FlowCast — no manual target needed for TCP mode.</div>
+        </div>
       </div>
       <div class="project-name" id="project-name-display">Untitled</div>
+      <button class="btn-settings" id="btn-help" title="How to use FlowCast">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <circle cx="7.5" cy="7.5" r="6.25" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M5.6 5.5a1.9 1.9 0 113.5 1c-.7.5-1.4.7-1.4 1.7M7.5 11.1v.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="btn-settings" id="btn-settings" title="Settings">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <path d="M7.5 9.5a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.636 2.636l1.06 1.06M11.304 11.304l1.06 1.06M2.636 12.364l1.06-1.06M11.304 3.696l1.06-1.06" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- ── SETTINGS POPOVER ── -->
+    <div class="settings-popover" id="settings-popover" style="display:none">
+      <div class="settings-pop-title">Settings</div>
+
+      <div class="settings-section">
+        <div class="settings-title">GO Behavior</div>
+        <label class="settings-radio">
+          <input type="radio" name="go-mode" value="stop" checked>
+          <span class="settings-radio-label">
+            <span class="settings-radio-name">Stop &amp; play next</span>
+            <span class="settings-radio-desc">Stops current cue before firing the next one</span>
+          </span>
+        </label>
+        <label class="settings-radio">
+          <input type="radio" name="go-mode" value="overlap">
+          <span class="settings-radio-label">
+            <span class="settings-radio-name">Keep playing, play next</span>
+            <span class="settings-radio-desc">Both cues play simultaneously</span>
+          </span>
+        </label>
+        <label class="settings-radio">
+          <input type="radio" name="go-mode" value="fadeout">
+          <span class="settings-radio-label">
+            <span class="settings-radio-name">Fade out &amp; play next</span>
+            <span class="settings-radio-desc">Current cue fades out as next one fires</span>
+          </span>
+        </label>
+        <div class="settings-fade-row" id="settings-fade-row">
+          <label class="settings-label">Fade duration</label>
+          <div class="input-with-unit" style="width:90px">
+            <input class="form-input form-input-mono" id="inp-go-fade-duration" type="number" min="0.1" max="10" step="0.1" value="2.0">
+            <span class="input-unit">s</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Output Test</div>
+        <div class="settings-row" style="justify-content:flex-start; gap:10px">
+          <button class="btn-osc-restart" id="btn-test-output" type="button"
+                  title="Plays a short test tone on the currently selected output device — verify routing before a show.">
+            ♪ Play test tone
+          </button>
+          <span class="settings-help-text">1 second sine on the current output</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Editing</div>
+        <label class="settings-checkbox">
+          <input type="checkbox" id="chk-confirm-delete" checked>
+          <span class="settings-radio-label">
+            <span class="settings-radio-name">Confirm before deleting cues</span>
+            <span class="settings-radio-desc">Prompts before single-key Delete removes a cue (no undo)</span>
+          </span>
+        </label>
+        <label class="settings-checkbox">
+          <input type="checkbox" id="chk-cmdn-blank">
+          <span class="settings-radio-label">
+            <span class="settings-radio-name">Cmd+N adds a blank cue</span>
+            <span class="settings-radio-desc">Off: Cmd+N opens the file picker (matches the toolbar)</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Auto-Save</div>
+        <div class="settings-row" style="justify-content:flex-start; gap:10px">
+          <label class="settings-label" for="inp-autosave-min">Every</label>
+          <div class="input-with-unit" style="width:80px">
+            <input class="form-input form-input-mono" id="inp-autosave-min" type="number" min="0" max="60" step="1" value="0">
+            <span class="input-unit">min</span>
+          </div>
+          <span class="settings-help-text">0 = off · only saves projects with a file path</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Updates</div>
+        <div class="settings-row" style="justify-content:space-between; gap:10px">
+          <span class="settings-help-text">Version <span id="settings-app-version">—</span></span>
+          <button class="btn-osc-restart" id="btn-check-updates" type="button"
+                  title="Check GitHub Releases for a newer FlowCast build.">
+            ↑ Check for updates
+          </button>
+        </div>
+        <div class="settings-help-text" id="settings-update-status" style="margin-top:6px"></div>
+      </div>
     </div>
   </header>
 
   <!-- ══════════════════════════════════════════════════
        MAIN AREA
   ══════════════════════════════════════════════════ -->
+  <!-- Backend crash banner — shown when Python process exits unexpectedly -->
+  <div class="backend-crash-banner" id="backend-crash-banner" style="display:none">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+      <path d="M8 1L15 14H1L8 1Z" fill="#ff4757"/>
+      <rect x="7.25" y="5.5" width="1.5" height="5" rx=".75" fill="#fff"/>
+      <rect x="7.25" y="11.5" width="1.5" height="1.5" rx=".75" fill="#fff"/>
+    </svg>
+    Audio engine stopped — restart FlowCast to resume playback
+  </div>
+
   <div class="main-area" id="main-area">
+
+    <!-- ── NOW PLAYING ── -->
+    <div class="now-playing" id="now-playing">
+      <div class="np-inner">
+
+        <div class="np-left">
+          <span class="np-badge np-badge-idle" id="np-badge">STANDBY</span>
+          <div class="np-cue-id" id="np-cue-number">—</div>
+          <div class="np-cue-name" id="np-cue-name">No cue selected</div>
+          <div class="np-combo-info" id="np-combo-info" style="display:none"></div>
+        </div>
+
+        <div class="np-center">
+          <div class="np-waveform-wrap" id="np-waveform-wrap">
+            <canvas id="np-waveform"></canvas>
+            <div class="np-time np-time-elapsed" id="np-elapsed">—</div>
+            <div class="np-time np-time-remaining" id="np-remaining">—</div>
+          </div>
+        </div>
+
+        <div class="np-right" id="np-right">
+          <div class="np-next-label">NEXT UP</div>
+          <div class="np-next-id" id="np-next-number">—</div>
+          <div class="np-next-name" id="np-next-name">—</div>
+          <div class="np-auto-badge" id="np-auto-badge" style="display:none"></div>
+        </div>
+
+      </div>
+      <div class="np-resize-handle" id="np-resize-handle"></div>
+    </div>
 
     <!-- ── CUE LIST ── -->
     <div class="cue-list-section" id="cue-list-section">
       <div class="cue-list-toolbar">
-        <button class="toolbar-btn" id="btn-add-cue" title="Add audio cue (Cmd+N)">
+        <button class="toolbar-btn" id="btn-add-cue" title="Add audio cue — opens file picker; selected files are appended to the end of the cue list (Cmd+N)">
           <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           Add Cue
         </button>
@@ -80,16 +257,24 @@
           <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 3h8M5 3V2h2v1M4 3v6.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Delete
         </button>
+        <div class="toolbar-sep" id="sep-begin-edit" style="display:none"></div>
+        <button class="toolbar-btn toolbar-btn-combo" id="btn-begin-edit" style="display:none" title="Open Linear Timeline Editor for selected clips">
+          <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="3" width="10" height="2" rx="1" fill="currentColor" opacity="0.6"/><rect x="1" y="7" width="10" height="2" rx="1" fill="currentColor" opacity="0.6"/><rect x="3" y="1" width="2" height="10" rx="1" fill="currentColor"/><rect x="7" y="1" width="2" height="10" rx="1" fill="currentColor"/></svg>
+          BEGIN EDIT
+        </button>
       </div>
 
       <div class="cue-list-scroll" id="cue-list-scroll">
         <table class="cue-table" id="cue-table">
           <thead>
             <tr>
-              <th class="col-status-icon"></th>
+              <th class="col-color-stripe"></th>
               <th class="col-num">#</th>
+              <th class="col-state"></th>
               <th class="col-name">Name</th>
+              <th class="col-combo" title="Check 2+ cues then click BEGIN EDIT to create a Combo Cue">MIX</th>
               <th class="col-prewait">Pre-wait</th>
+              <th class="col-postwait">Post-wait</th>
               <th class="col-duration">Duration</th>
               <th class="col-continue" title="Continue mode">↻</th>
             </tr>
@@ -172,16 +357,83 @@
               <div class="form-group">
                 <label class="form-label">Continue Mode</label>
                 <div class="segmented" id="continue-mode">
-                  <button class="seg-btn active" data-mode="none">Do Nothing</button>
-                  <button class="seg-btn" data-mode="auto-continue">Auto-Continue</button>
-                  <button class="seg-btn" data-mode="auto-follow">Auto-Follow</button>
+                  <button class="seg-btn active" data-mode="none" title="GO must be pressed to fire the next cue">Do Nothing</button>
+                  <button class="seg-btn" data-mode="auto-continue" title="Play With — the next cue starts at the same time this one starts (after postWait)">Play With</button>
+                  <button class="seg-btn" data-mode="auto-follow" title="Auto-Play Next — the next cue starts automatically when this one finishes (after postWait)">Auto-Play Next</button>
                 </div>
               </div>
-              <div class="form-group form-group-sm">
+              <div class="form-group form-group-sm" title="Pre-wait — delay between pressing GO and the cue actually starting. Useful for syncing with a count-in or external trigger.">
                 <label class="form-label">Pre-wait</label>
                 <div class="input-with-unit">
-                  <input class="form-input form-input-mono" id="inp-prewait" type="number" min="0" step="0.1" value="0">
+                  <input class="form-input form-input-mono" id="inp-prewait" type="number" min="0" step="0.1" value="0"
+                    title="Pre-wait — delay between pressing GO and the cue actually starting. Useful for syncing with a count-in or external trigger.">
                   <span class="input-unit">s</span>
+                </div>
+              </div>
+              <div class="form-group form-group-sm" title="Post-wait — extra delay added before the auto-fire trigger (Play With / Auto-Play Next) launches the next cue. No effect when Continue Mode is Do Nothing.">
+                <label class="form-label">Post-wait</label>
+                <div class="input-with-unit">
+                  <input class="form-input form-input-mono" id="inp-postwait" type="number" min="0" step="0.1" value="0"
+                    title="Post-wait — extra delay added before the auto-fire trigger (Play With / Auto-Play Next) launches the next cue. No effect when Continue Mode is Do Nothing.">
+                  <span class="input-unit">s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group form-group-grow">
+                <label class="form-label">When this cue fires</label>
+                <select class="form-select" id="sel-go-override">
+                  <option value="">Use global default</option>
+                  <option value="stop">Stop current cue</option>
+                  <option value="overlap">Overlap — keep playing</option>
+                  <option value="fadeout">Fade out, then play</option>
+                </select>
+              </div>
+              <div class="form-group form-group-sm" id="row-cue-fade-dur" style="display:none">
+                <label class="form-label">Fade</label>
+                <div class="input-with-unit">
+                  <input class="form-input form-input-mono" id="inp-cue-fade-dur" type="number" min="0.1" step="0.1" value="2.0">
+                  <span class="input-unit">s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="duck-section">
+              <label class="duck-toggle">
+                <input type="checkbox" id="chk-loop">
+                <span class="duck-toggle-label">Loop</span>
+              </label>
+            </div>
+
+            <div class="duck-section">
+              <label class="duck-toggle">
+                <input type="checkbox" id="chk-duck">
+                <span class="duck-toggle-label">Duck other tracks while this cue plays</span>
+              </label>
+              <div class="duck-settings" id="duck-settings" style="display:none">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Duck amount</label>
+                    <div class="input-with-unit">
+                      <input class="form-input form-input-mono" id="inp-duck-amount" type="number" min="-60" max="-1" step="1" value="-12">
+                      <span class="input-unit">dB</span>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Fade in</label>
+                    <div class="input-with-unit">
+                      <input class="form-input form-input-mono" id="inp-duck-fade-in" type="number" min="0" step="0.1" value="0.5">
+                      <span class="input-unit">s</span>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Fade out</label>
+                    <div class="input-with-unit">
+                      <input class="form-input form-input-mono" id="inp-duck-fade-out" type="number" min="0" step="0.1" value="1.0">
+                      <span class="input-unit">s</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -204,25 +456,52 @@
             <div class="waveform-area">
               <canvas class="waveform-canvas" id="waveform-canvas"></canvas>
               <div class="waveform-no-file" id="waveform-no-file">No audio file loaded</div>
+              <div class="waveform-time-tooltip" id="waveform-tooltip"></div>
+            </div>
+            <div class="waveform-controls">
+              <button class="waveform-preview-btn" id="btn-preview-trim" title="Preview trimmed region">
+                <svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5V1z" fill="currentColor"/></svg>
+                Preview trim
+              </button>
+              <button class="waveform-preview-btn waveform-preview-stop" id="btn-preview-stop" style="display:none" title="Stop preview">
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor"/></svg>
+                Stop
+              </button>
+              <div class="waveform-playhead-time" id="waveform-playhead-time">—</div>
+              <div class="waveform-hint-row">
+                <span><kbd>I</kbd> set in</span>
+                <span><kbd>O</kbd> set out</span>
+                <span><kbd>Space</kbd> play from playhead</span>
+                <span><kbd>Enter</kbd> preview trim</span>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">In Point <kbd>I</kbd></label>
+                <label class="form-label">In Point</label>
                 <div class="input-with-unit">
-                  <input class="form-input form-input-mono" id="inp-in-point" type="text" placeholder="0:00.000">
+                  <input class="form-input form-input-mono" id="inp-in-point" type="number" min="0" step="0.001" placeholder="0.000">
                   <span class="input-unit">s</span>
                 </div>
               </div>
               <div class="form-group">
-                <label class="form-label">Out Point <kbd>O</kbd></label>
+                <label class="form-label">Out Point</label>
                 <div class="input-with-unit">
-                  <input class="form-input form-input-mono" id="inp-out-point" type="text" placeholder="—">
+                  <input class="form-input form-input-mono" id="inp-out-point" type="number" min="0" step="0.001" placeholder="0.000">
                   <span class="input-unit">s</span>
                 </div>
               </div>
               <div class="form-group">
                 <label class="form-label">Duration</label>
                 <div class="form-input form-input-mono form-input-readonly" id="disp-duration">—</div>
+              </div>
+              <div class="form-group form-group-fit">
+                <label class="form-label">&nbsp;</label>
+                <button class="btn-icon" id="btn-reset-trim" type="button" title="Reset trim points to full file">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 8a6 6 0 1 0 1.76-4.24"/>
+                    <path d="M2 2v3.5h3.5"/>
+                  </svg>
+                </button>
               </div>
             </div>
             <div class="form-row">
@@ -278,9 +557,18 @@
             <div class="form-row">
               <div class="form-group form-group-grow">
                 <label class="form-label">Output Device</label>
-                <select class="form-select" id="select-output-device">
-                  <option value="">System Default</option>
-                </select>
+                <div class="form-row" style="gap:6px">
+                  <select class="form-select" id="select-output-device" style="flex:1">
+                    <option value="">System Default</option>
+                  </select>
+                  <button class="btn-icon" id="btn-rescan-devices" type="button"
+                          title="Rescan audio devices&#10;Use this if you've plugged in or switched audio interfaces since launch and they don't appear in the list.">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 8a6 6 0 1 1-1.76-4.24"/>
+                      <path d="M14 2v3.5h-3.5"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -299,6 +587,164 @@
     <a href="#" class="footer-link" id="footer-link">veproductions.net</a>
   </footer>
 
+  <!-- ══════════════════════════════════════════════════
+       LTE OVERLAY (Linear Timeline Editor)
+  ══════════════════════════════════════════════════ -->
+  <div class="lte-overlay" id="lte-overlay" style="display:none">
+    <div class="lte-header">
+      <div class="lte-header-left">
+        <span class="lte-label-badge">COMBO CUE</span>
+        <span class="lte-title" id="lte-title" contenteditable="true" spellcheck="false">Combo Cue</span>
+      </div>
+      <div class="lte-transport">
+        <button class="lte-btn" id="lte-btn-rewind" title="Rewind to start (Escape)">⏮</button>
+        <button class="lte-btn lte-btn-play-ctrl" id="lte-btn-play" title="Play / Pause (Space)">▶ Play</button>
+        <span class="lte-playhead-time" id="lte-playhead-time">0:00.000</span>
+      </div>
+      <div class="lte-header-right">
+        <button class="lte-btn lte-btn-zoom" id="lte-btn-zoom-out" title="Zoom out">−</button>
+        <button class="lte-btn lte-btn-zoom" id="lte-btn-zoom-in"  title="Zoom in">+</button>
+        <div class="lte-header-sep"></div>
+        <button class="lte-btn lte-btn-cancel" id="lte-btn-cancel">Cancel</button>
+        <button class="lte-btn lte-btn-save"   id="lte-btn-save">SAVE</button>
+      </div>
+    </div>
+    <div class="lte-body">
+      <div class="lte-canvas-wrap" id="lte-canvas-wrap">
+        <canvas id="lte-canvas"></canvas>
+        <div class="lte-canvas-tooltip" id="lte-canvas-tooltip" style="display:none"></div>
+      </div>
+      <div class="lte-info-panel" id="lte-info-panel">
+        <div class="lte-info-empty">Select a clip to edit</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       HELP OVERLAY (How to use FlowCast)
+  ══════════════════════════════════════════════════ -->
+  <div class="help-overlay" id="help-overlay" style="display:none">
+    <div class="help-header">
+      <div class="help-header-left">
+        <span class="help-label-badge">HOW TO USE FLOWCAST</span>
+      </div>
+      <button class="lte-btn" id="help-btn-close" title="Close (Esc)">✕ Close</button>
+    </div>
+    <div class="help-body">
+      <div class="help-content">
+
+        <section class="help-section">
+          <h2>What is FlowCast?</h2>
+          <p>FlowCast is a live-event audio cue playback tool. You build a list of cues, each pointing at an audio file, then fire them in order with a single key press. Designed to feel familiar to QLab users — keystrokes, terminology, and OSC API match.</p>
+        </section>
+
+        <section class="help-section">
+          <h2>Quick Start</h2>
+          <ol>
+            <li><strong>Add cues</strong> — click <kbd>+ Add Cue</kbd> in the toolbar (or drag audio files onto the cue list). Files become rows in the cue list.</li>
+            <li><strong>Select a cue</strong> — click its row. The inspector at the bottom shows its properties.</li>
+            <li><strong>Trim &amp; tune</strong> — use the <em>Time</em> tab to set in/out points and listen to a preview, the <em>Audio</em> tab for volume/pan/output device.</li>
+            <li><strong>Press GO</strong> — <kbd>Space</kbd> fires the selected cue and advances the playhead to the next.</li>
+            <li><strong>Save</strong> — <kbd>Cmd&nbsp;S</kbd>. Projects use the <code>.flowcast</code> format.</li>
+          </ol>
+        </section>
+
+        <section class="help-section">
+          <h2>Transport &amp; Hotkeys</h2>
+          <table class="help-keys">
+            <tr><td><kbd>Space</kbd></td><td>GO — fire the selected cue</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Stop all playback</td></tr>
+            <tr><td><kbd>Cmd&nbsp;.</kbd></td><td>Panic — kill audio immediately, no fade</td></tr>
+            <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Move the cue selection</td></tr>
+            <tr><td><kbd>Enter</kbd></td><td>Rename the selected cue (in cue list); preview trim (in Time tab)</td></tr>
+            <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Set in / out point at playhead (Time tab)</td></tr>
+            <tr><td><kbd>Cmd&nbsp;N</kbd></td><td>Add a blank cue</td></tr>
+            <tr><td><kbd>Delete</kbd></td><td>Remove selected cue</td></tr>
+            <tr><td><kbd>Cmd&nbsp;D</kbd></td><td>Duplicate selected cue</td></tr>
+          </table>
+        </section>
+
+        <section class="help-section">
+          <h2>Continue Modes</h2>
+          <p>Each cue can chain into the next automatically. Set this in the inspector under <em>Continue Mode</em>.</p>
+          <ul>
+            <li><strong>Do Nothing</strong> — the default. <kbd>Space</kbd> must be pressed for each cue.</li>
+            <li><strong>Play With (↷)</strong> — the next cue starts <em>at the same time</em> as this one starts. Both play in parallel. Use for layered events: a music bed plus a voiceover firing together. The dotted blue line on the now-playing waveform marks when the linked cue's audio comes in.</li>
+            <li><strong>Auto-Play Next (↪)</strong> — the next cue starts <em>when this one finishes</em>. Sequential, no overlap. Use for back-to-back playback.</li>
+          </ul>
+          <p><strong>Pre-wait</strong> delays a cue's start after GO — useful for a count-in or external sync. <strong>Post-wait</strong> adds a delay before the auto-fire trigger launches the next cue. Both fields are in the inspector and apply only when relevant.</p>
+        </section>
+
+        <section class="help-section">
+          <h2>Trim, Fades, and Duck</h2>
+          <ul>
+            <li><strong>Time tab</strong> — drag the white markers on the waveform to set in/out points, or type values directly. The Reset button next to Duration restores both to the full file. Click anywhere on the waveform to place the playhead. <kbd>Space</kbd> auditions from the playhead; <kbd>Enter</kbd> previews the trimmed region.</li>
+            <li><strong>Fade In / Fade Out</strong> — applied as smooth ramps at cue start/end. Specified in seconds.</li>
+            <li><strong>Duck</strong> — when this cue plays, all other currently-playing cues are smoothly attenuated. Configure the amount, fade-in, and fade-out in the Audio tab. Useful for voiceovers over a music bed.</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h2>Combo Cues (Linear Timeline Editor)</h2>
+          <p>Multiple clips bundled into a single cue with a fixed timeline.</p>
+          <ol>
+            <li>Tick the <strong>MIX</strong> checkbox on two or more cues.</li>
+            <li>Click <kbd>BEGIN EDIT</kbd> in the toolbar to open the LTE.</li>
+            <li>Drag clips horizontally to position them; drag the white edge handles to trim. Hold <kbd>Ctrl</kbd> + scroll to zoom.</li>
+            <li>Adjust per-clip volume / fade / duck in the right panel.</li>
+            <li>Click <kbd>Save</kbd> to commit. The source cues become a single Combo row in the cue list.</li>
+          </ol>
+          <p>Combo cues fire all their clips at the chosen offsets. Use them for fixed multi-clip moments (intro stinger + bed + voiceover authored as one event). Use <strong>Play With</strong> when you want the cues to remain independently editable in the cue list instead.</p>
+        </section>
+
+        <section class="help-section">
+          <h2>Loop</h2>
+          <p>Tick the <em>Loop</em> checkbox in the inspector. The cue plays seamlessly until stopped. The yellow ↻ icon appears in the cue list. Common use: ambient beds that should run for the duration of a scene.</p>
+        </section>
+
+        <section class="help-section">
+          <h2>OSC Remote Control</h2>
+          <p>FlowCast listens on port <code>53000</code> by default and speaks the QLab v3/v4 OSC API. Bitfocus Companion's QLab module connects without configuration once you click TCP and point it at your machine.</p>
+          <ul>
+            <li><strong>Status dot</strong> — top-right of the header. Green = connected, dim = idle, red = error.</li>
+            <li><strong>Click the OSC label</strong> to open settings (port, optional passcode, restart).</li>
+            <li><strong>Supported commands</strong>: <code>/go</code>, <code>/stop</code>, <code>/pause</code>, <code>/resume</code>, <code>/playhead/next</code>, <code>/playhead/previous</code>, <code>/cue/{N}/start</code>.</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h2>Audio Output</h2>
+          <p>Choose your output device in <em>Settings → Output Device</em>. If you plug in or switch interfaces after launch, click the <strong>↻ rescan</strong> button to refresh the list. Stop all playback before rescanning.</p>
+        </section>
+
+        <section class="help-section">
+          <h2>Live-Show Best Practice</h2>
+          <ul>
+            <li><strong>Test the whole list</strong> in the venue's actual playback setup before doors open. Walk the cues with the same console / Companion buttons you'll use during the show.</li>
+            <li><strong>Set your output device explicitly</strong> rather than relying on System Default — the OS can switch defaults when displays connect/disconnect.</li>
+            <li><strong>Number cues with intent</strong> — Companion / StreamDeck buttons reference cues by number (<code>/cue/{N}</code>). FlowCast won't auto-renumber on delete or reorder, so externally-mapped buttons stay valid.</li>
+            <li><strong>Prefer Auto-Play Next</strong> for back-to-back tracks instead of pressing GO twice in quick succession — keeps timing consistent.</li>
+            <li><strong>Use Duck</strong> for voiceovers rather than manually riding faders — less to do live.</li>
+            <li><strong>Save often</strong>. The window will warn before closing with unsaved changes, but a crash mid-show isn't covered. <kbd>Cmd&nbsp;S</kbd> is your friend.</li>
+            <li><strong>Keep a hot Panic finger</strong> — <kbd>Cmd&nbsp;.</kbd> kills everything immediately with no fade, for the moment when something has to stop right now.</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h2>Troubleshooting</h2>
+          <ul>
+            <li><strong>No audio</strong> — check the output device in Settings; if you connected an interface after launch, click rescan. Verify the cue's volume isn't pulled down.</li>
+            <li><strong>OSC offline</strong> — click the status dot, then ↺ Restart. If the port is in use, change it in the popover.</li>
+            <li><strong>Cue won't play / row flashes red</strong> — the file failed to load. Check the path; if you moved files, re-add them or fix the path field.</li>
+            <li><strong>Backend exited banner</strong> — the Python audio engine crashed. Restart the app. If it persists, the file you tried to play may be malformed.</li>
+          </ul>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
   <script src="renderer.js"></script>
+  <script src="lte.js"></script>
 </body>
 </html>
