@@ -1,0 +1,32 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2038"/>
+      <stop offset="1" stop-color="#0c0e14"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a9aff"/>
+      <stop offset="1" stop-color="#3d7eff"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="225" ry="225" fill="url(#bg)"/>
+
+  <!-- A1 Diamond — 13 bars, symmetric peak at center.
+       Source units 51 wide × 30 tall, scaled ×14, centred. -->
+  <g transform="translate(155, 305) scale(14)">
+    <rect x="0"  y="13" width="3" height="4"  rx="1.5" fill="url(#bar)" opacity="0.20"/>
+    <rect x="4"  y="11" width="3" height="8"  rx="1.5" fill="url(#bar)" opacity="0.32"/>
+    <rect x="8"  y="9"  width="3" height="12" rx="1.5" fill="url(#bar)" opacity="0.46"/>
+    <rect x="12" y="6"  width="3" height="18" rx="1.5" fill="url(#bar)" opacity="0.60"/>
+    <rect x="16" y="3"  width="3" height="24" rx="1.5" fill="url(#bar)" opacity="0.74"/>
+    <rect x="20" y="1"  width="3" height="28" rx="1.5" fill="url(#bar)" opacity="0.88"/>
+    <rect x="24" y="0"  width="3" height="30" rx="1.5" fill="url(#bar)"/>
+    <rect x="28" y="1"  width="3" height="28" rx="1.5" fill="url(#bar)" opacity="0.88"/>
+    <rect x="32" y="3"  width="3" height="24" rx="1.5" fill="url(#bar)" opacity="0.74"/>
+    <rect x="36" y="6"  width="3" height="18" rx="1.5" fill="url(#bar)" opacity="0.60"/>
+    <rect x="40" y="9"  width="3" height="12" rx="1.5" fill="url(#bar)" opacity="0.46"/>
+    <rect x="44" y="11" width="3" height="8"  rx="1.5" fill="url(#bar)" opacity="0.32"/>
+    <rect x="48" y="13" width="3" height="4"  rx="1.5" fill="url(#bar)" opacity="0.20"/>
+  </g>
+</svg>

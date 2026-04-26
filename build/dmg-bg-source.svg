@@ -1,0 +1,52 @@
+<svg width="540" height="380" viewBox="0 0 540 380" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#13182a"/>
+      <stop offset="1" stop-color="#070910"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a9aff"/>
+      <stop offset="1" stop-color="#3d7eff"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="540" height="380" fill="url(#bg)"/>
+
+  <!-- Small A1 diamond mark, top-centered -->
+  <g transform="translate(244, 24) scale(1.0)">
+    <rect x="0"  y="13" width="3" height="4"  rx="1.5" fill="url(#bar)" opacity="0.20"/>
+    <rect x="4"  y="11" width="3" height="8"  rx="1.5" fill="url(#bar)" opacity="0.32"/>
+    <rect x="8"  y="9"  width="3" height="12" rx="1.5" fill="url(#bar)" opacity="0.46"/>
+    <rect x="12" y="6"  width="3" height="18" rx="1.5" fill="url(#bar)" opacity="0.60"/>
+    <rect x="16" y="3"  width="3" height="24" rx="1.5" fill="url(#bar)" opacity="0.74"/>
+    <rect x="20" y="1"  width="3" height="28" rx="1.5" fill="url(#bar)" opacity="0.88"/>
+    <rect x="24" y="0"  width="3" height="30" rx="1.5" fill="url(#bar)"/>
+    <rect x="28" y="1"  width="3" height="28" rx="1.5" fill="url(#bar)" opacity="0.88"/>
+    <rect x="32" y="3"  width="3" height="24" rx="1.5" fill="url(#bar)" opacity="0.74"/>
+    <rect x="36" y="6"  width="3" height="18" rx="1.5" fill="url(#bar)" opacity="0.60"/>
+    <rect x="40" y="9"  width="3" height="12" rx="1.5" fill="url(#bar)" opacity="0.46"/>
+    <rect x="44" y="11" width="3" height="8"  rx="1.5" fill="url(#bar)" opacity="0.32"/>
+    <rect x="48" y="13" width="3" height="4"  rx="1.5" fill="url(#bar)" opacity="0.20"/>
+  </g>
+
+  <!-- Headline -->
+  <text x="270" y="100" font-family="-apple-system, 'DM Sans', sans-serif"
+        font-size="20" font-weight="700" fill="#dde2f0" text-anchor="middle">Install FlowCast</text>
+  <text x="270" y="124" font-family="-apple-system, 'DM Sans', sans-serif"
+        font-size="13" fill="#7a85a0" text-anchor="middle">Drag the FlowCast icon onto Applications</text>
+
+  <!-- Arrow between the two icons (icons placed at y≈210, centered) -->
+  <g stroke="#3d7eff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <line x1="225" y1="245" x2="335" y2="245"/>
+    <polyline points="320,232 335,245 320,258"/>
+  </g>
+
+  <!-- Footer -->
+  <text x="270" y="338" font-family="-apple-system, 'DM Sans', sans-serif"
+        font-size="11" fill="#7a85a0" text-anchor="middle">When installation is complete, eject and delete this disk image</text>
+
+  <!-- Subtle wordmark -->
+  <text x="270" y="358" font-family="-apple-system, 'DM Sans', sans-serif"
+        font-size="9" font-weight="700" letter-spacing="3" fill="#3d7eff" text-anchor="middle"
+        opacity="0.5">VISUAL ENTROPY PRODUCTIONS</text>
+</svg>

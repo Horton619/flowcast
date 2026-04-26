@@ -1,6 +1,6 @@
 {
   "name": "flowcast",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Audio cue playback for live events — Visual Entropy Productions",
   "main": "main.js",
   "homepage": "https://veproductions.net",
@@ -54,6 +54,7 @@
     ],
     "mac": {
       "category": "public.app-category.music",
+      "icon": "build/icon.icns",
       "target": [
         { "target": "dmg", "arch": ["arm64"] }
       ],
@@ -62,7 +63,17 @@
         { "from": "backend/dist/flowcast_backend", "to": "backend/flowcast_backend" }
       ]
     },
+    "dmg": {
+      "background": "build/dmg-bg.png",
+      "iconSize": 100,
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 175, "y": 245, "type": "file" },
+        { "x": 385, "y": 245, "type": "link", "path": "/Applications" }
+      ]
+    },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         { "target": "nsis", "arch": ["x64"] }
       ],
@@ -72,7 +83,9 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     }
   }
 }

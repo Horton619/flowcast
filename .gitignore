@@ -4,6 +4,7 @@ backend/dist/
 backend/build/
 backend/venv/
 backend/__pycache__/
+build/icon.iconset/
 backend/*.spec
 !backend/main.spec
 *.pyc
