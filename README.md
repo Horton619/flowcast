@@ -13,8 +13,9 @@ Built for theatre, dance, AV, and corporate event use. Free.
 Latest builds are on the [Releases page](https://github.com/Horton619/flowcast/releases/latest).
 
 - **macOS (Apple Silicon)** — `FlowCast-x.y.z-arm64.dmg`
-- **macOS (Intel)** — `FlowCast-x.y.z-x64.dmg`
 - **Windows 10/11 (64-bit)** — `FlowCast-Setup-x.y.z.exe`
+
+> Intel Mac builds will return in a future release once the GitHub-hosted Intel runner queue settles down.
 
 The app updates itself in the background when a new release is published — or click *Settings → ↑ Check for updates* to check on demand.
 
