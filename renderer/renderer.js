@@ -2538,6 +2538,27 @@ function bindSettingsListeners() {
     })
   }
 
+  // Update-ready banner — fires when electron-updater finishes downloading a new release
+  if (window.flowcast.onUpdateReady) {
+    window.flowcast.onUpdateReady(info => {
+      const banner = $('update-ready-banner')
+      const ver    = $('update-ready-version')
+      if (ver) ver.textContent = `v${info?.version || ''}`.trim()
+      if (banner) banner.style.display = 'flex'
+    })
+  }
+  const btnRestart = $('btn-update-restart')
+  if (btnRestart && window.flowcast.installUpdateNow) {
+    btnRestart.addEventListener('click', () => window.flowcast.installUpdateNow())
+  }
+  const btnDismiss = $('btn-update-dismiss')
+  if (btnDismiss) {
+    btnDismiss.addEventListener('click', () => {
+      const banner = $('update-ready-banner')
+      if (banner) banner.style.display = 'none'
+    })
+  }
+
   // App version + update check
   const versionEl = $('settings-app-version')
   if (versionEl && window.flowcast.getAppVersion) {

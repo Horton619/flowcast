@@ -209,6 +209,17 @@
     Audio engine stopped — restart FlowCast to resume playback
   </div>
 
+  <!-- Update-ready banner — shown after electron-updater finishes downloading a new release -->
+  <div class="update-ready-banner" id="update-ready-banner" style="display:none">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+      <path d="M8 14V2M3 7l5-5 5 5" stroke="#3d7eff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>FlowCast <span id="update-ready-version">…</span> is ready. Restart to finish updating.</span>
+    <button class="btn-update-restart" id="btn-update-restart" type="button">Restart now</button>
+    <button class="btn-update-dismiss" id="btn-update-dismiss" type="button"
+            title="Hide — the update will apply automatically the next time you quit FlowCast">✕</button>
+  </div>
+
   <div class="main-area" id="main-area">
 
     <!-- ── NOW PLAYING ── -->

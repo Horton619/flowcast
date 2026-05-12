@@ -188,6 +188,15 @@ app.whenReady().then(() => {
   autoUpdater.checkForUpdatesAndNotify().catch(() => {})
 })
 
+// When electron-updater finishes downloading a new release, tell the renderer
+// to show the "Restart now to finish updating" banner. Fires for both the
+// launch-time auto-check and the user clicking Settings → Check for updates.
+autoUpdater.on('update-downloaded', (info) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-ready', { version: info.version })
+  }
+})
+
 app.on('before-quit', () => {
   if (backendProcess) backendProcess.kill()
 })
@@ -221,6 +230,11 @@ ipcMain.handle('quit-now', () => {
 })
 
 ipcMain.handle('get-app-version', () => app.getVersion())
+
+ipcMain.handle('install-update-now', () => {
+  // Quits the app and applies the staged update; relaunches into the new version.
+  autoUpdater.quitAndInstall()
+})
 
 ipcMain.handle('check-for-updates', async () => {
   try {

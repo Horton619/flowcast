@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('flowcast', {
   quitNow: () => ipcRenderer.invoke('quit-now'),
 
   // App / updates
-  getAppVersion:    () => ipcRenderer.invoke('get-app-version'),
-  checkForUpdates:  () => ipcRenderer.invoke('check-for-updates')
+  getAppVersion:     () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates:   () => ipcRenderer.invoke('check-for-updates'),
+  installUpdateNow:  () => ipcRenderer.invoke('install-update-now'),
+  onUpdateReady:     (cb) => ipcRenderer.on('update-ready', (_e, info) => cb(info))
 })
