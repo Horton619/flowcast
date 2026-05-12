@@ -2543,6 +2543,12 @@ function bindSettingsListeners() {
   // a single static "downloading in background" line that never moves.
   const fmtMB    = b => (b / 1048576).toFixed(1)
   const fmtSpeed = bps => bps > 1048576 ? `${(bps / 1048576).toFixed(1)} MB/s` : `${(bps / 1024).toFixed(0)} KB/s`
+  const fmtETA   = secs => {
+    if (!isFinite(secs) || secs <= 0) return ''
+    if (secs < 60)   return `~${Math.round(secs)}s left`
+    const m = Math.floor(secs / 60), s = Math.round(secs % 60)
+    return `~${m}m ${s}s left`
+  }
   function paintUpdateStatus(msg) {
     const statusEl = $('settings-update-status')
     const progEl   = $('settings-update-progress')
@@ -2568,9 +2574,11 @@ function bindSettingsListeners() {
         setProg(0, 'Starting…')
         break
       case 'progress': {
-        const pct = msg.percent || 0
+        const pct  = msg.percent || 0
+        const eta  = msg.bytesPerSecond > 0 ? fmtETA((msg.total - msg.transferred) / msg.bytesPerSecond) : ''
+        const tail = eta ? `  ·  ${eta}` : ''
         setProg(pct,
-          `${pct.toFixed(0)}%  ·  ${fmtMB(msg.transferred)} / ${fmtMB(msg.total)} MB  ·  ${fmtSpeed(msg.bytesPerSecond)}`)
+          `${pct.toFixed(0)}%  ·  ${fmtMB(msg.transferred)} / ${fmtMB(msg.total)} MB  ·  ${fmtSpeed(msg.bytesPerSecond)}${tail}`)
         break
       }
       case 'downloaded':
