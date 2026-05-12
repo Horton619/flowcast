@@ -14,6 +14,12 @@ a = Analysis(
         'pythonosc.osc_server',
         'pythonosc.osc_message_builder',
         'pythonosc.udp_client',
+        # audioread backends are loaded dynamically — name them so PyInstaller
+        # actually bundles them. macca = CoreAudio (mac), ffdec = ffmpeg subprocess.
+        'audioread',
+        'audioread.macca',
+        'audioread.ffdec',
+        'audioread.rawread',
     ],
     hookspath=[],
     hooksconfig={},

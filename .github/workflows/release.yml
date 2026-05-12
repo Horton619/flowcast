@@ -33,7 +33,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install pyinstaller sounddevice soundfile numpy python-osc
+          pip install pyinstaller -r backend/requirements.txt
 
       - name: Build PyInstaller backend (arm64)
         run: |
@@ -92,7 +92,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install pyinstaller sounddevice soundfile numpy python-osc
+          pip install pyinstaller -r backend/requirements.txt
 
       - name: Build PyInstaller backend (Windows)
         shell: bash

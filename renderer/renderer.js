@@ -31,6 +31,22 @@ const state = {
 let rowDragSrcId = null
 let goContinueDepth = 0   // auto-continue recursion guard — reset on each explicit go()
 
+// Pending Play With / Auto-Play Next setTimeout IDs. Stop / Panic clear them so
+// a chained next-cue doesn't fire after the user has stopped playback.
+const pendingAutoFireTimers = new Set()
+function scheduleAutoFire(delayMs) {
+  const t = setTimeout(() => {
+    pendingAutoFireTimers.delete(t)
+    if (!state.paused) go(true)
+  }, delayMs)
+  pendingAutoFireTimers.add(t)
+  return t
+}
+function clearPendingAutoFires() {
+  pendingAutoFireTimers.forEach(clearTimeout)
+  pendingAutoFireTimers.clear()
+}
+
 let idCounter = 1
 function newId() { return `cue_${Date.now()}_${idCounter++}` }
 
@@ -879,7 +895,7 @@ function go(fromAutoContinue = false) {
   // Honour the global Pause flag — a paused show shouldn't silently advance.
   if (cue.continueMode === 'auto-continue') {
     const delay = ((cue.preWait || 0) + (cue.postWait || 0)) * 1000
-    setTimeout(() => { if (!state.paused) go(true) }, delay)
+    scheduleAutoFire(delay)
   }
 }
 
@@ -1005,7 +1021,7 @@ function cueDone(id) {
   // Skip the auto-fire if the show is paused.
   if (cue && cue.continueMode === 'auto-follow') {
     const delay = (cue.postWait || 0) * 1000
-    setTimeout(() => { if (!state.paused) go(true) }, delay)
+    scheduleAutoFire(delay)
   }
 }
 
@@ -1027,6 +1043,7 @@ function stopCue(id) {
 }
 
 function stopAll() {
+  clearPendingAutoFires()
   Object.keys(state.playingCues).forEach(id => stopCue(id))
   if (state.paused) {
     state.paused = false
@@ -1060,10 +1077,13 @@ function resumeAll() {
 
 function panic() {
   window.flowcast.sendToBackend({ type: 'panic' })
-  // Hard stop — cancel all timers immediately
+  // Hard stop — cancel all renderer-side timers immediately
+  clearPendingAutoFires()
   Object.keys(state.playingCues).forEach(id => {
     const info = state.playingCues[id]
-    if (info?.timer) cancelAnimationFrame(info.timer)
+    if (info?.timer)        cancelAnimationFrame(info.timer)
+    if (info?.preWaitTimer) clearTimeout(info.preWaitTimer)
+    if (info?.clipTimers)   info.clipTimers.forEach(clearTimeout)
   })
   state.playingCues = {}
   renderCueList()

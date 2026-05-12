@@ -37,20 +37,58 @@ active_lock = threading.Lock()
 # / sf.info calls cause SIGBUS crashes in mpeg_init. Serialise all access.
 _sndfile_lock = threading.Lock()
 
+# Codecs libsndfile does not handle (Apple's M4A/AAC container, etc.). We fall
+# back to audioread, which uses CoreAudio on macOS (no extra binary) and ffmpeg
+# elsewhere if it's on PATH.
+_AUDIOREAD_EXT = ('.m4a', '.aac', '.mp4', '.m4b')
+
+def _load_audio(file_path: str):
+    """Return (data float32 [N×2], samplerate). Raises on failure."""
+    ext = file_path.lower().rsplit('.', 1)[-1]
+    if ('.' + ext) in _AUDIOREAD_EXT:
+        return _load_via_audioread(file_path)
+    try:
+        with _sndfile_lock:
+            return sf.read(file_path, dtype='float32', always_2d=True)
+    except Exception:
+        # Codec libsndfile can't decode — try the audioread fallback before giving up
+        return _load_via_audioread(file_path)
+
+def _load_via_audioread(file_path: str):
+    import audioread
+    with audioread.audio_open(file_path) as f:
+        sr       = f.samplerate
+        channels = f.channels
+        buf = []
+        for chunk in f:
+            # audioread yields signed 16-bit little-endian PCM bytes
+            buf.append(np.frombuffer(chunk, dtype='<i2').astype(np.float32) / 32768.0)
+        data = np.concatenate(buf) if buf else np.zeros(0, dtype=np.float32)
+        if channels and channels > 0:
+            data = data.reshape(-1, channels)
+        else:
+            data = data.reshape(-1, 1)
+        if data.shape[1] == 1:
+            data = np.repeat(data, 2, axis=1)
+        elif data.shape[1] > 2:
+            data = data[:, :2]
+        return data, sr
+
 def play_cue(cue_id: str, file_path: str, in_point: float, out_point,
              volume_db: float, pan: float, fade_in: float, fade_out: float,
              loop: bool = False, device_id=None):
     """Load and play an audio file in a background thread."""
     def _worker():
         try:
-            with _sndfile_lock:
-                data, samplerate = sf.read(file_path, dtype='float32', always_2d=True)
+            data, samplerate = _load_audio(file_path)
         except Exception as e:
             send_log(f'Failed to open {file_path}: {e}', 'error')
             return
 
-        # Stereo mix-down if needed
-        if data.shape[1] == 1:
+        # _load_audio already returns 2-channel float32, but tolerate other shapes
+        if data.ndim == 1:
+            data = np.repeat(data[:, np.newaxis], 2, axis=1)
+        elif data.shape[1] == 1:
             data = np.repeat(data, 2, axis=1)
         elif data.shape[1] > 2:
             data = data[:, :2]
@@ -288,8 +326,7 @@ def fadeout_cue(cue_id: str, duration: float):
 def generate_waveform(file_path: str, num_bars: int = 200) -> list:
     """Return a list of normalised amplitude values (0-1) for the waveform display."""
     try:
-        with _sndfile_lock:
-            data, _ = sf.read(file_path, dtype='float32', always_2d=True)
+        data, _ = _load_audio(file_path)
         mono     = np.abs(data).mean(axis=1)
         chunk_sz = max(1, len(mono) // num_bars)
         bars     = []
@@ -664,9 +701,21 @@ def handle_message(msg: dict):
         file_path = msg['filePath']
         def _load():
             try:
-                with _sndfile_lock:
-                    info = sf.info(file_path)
-                duration = info.duration
+                # Prefer libsndfile's cheap header probe; for codecs it can't read
+                # (m4a/aac/mp4), fall back to a full decode via _load_audio just to
+                # measure duration.
+                ext = ('.' + file_path.lower().rsplit('.', 1)[-1])
+                if ext in _AUDIOREAD_EXT:
+                    data, sr = _load_audio(file_path)
+                    duration = len(data) / float(sr) if sr else 0.0
+                else:
+                    try:
+                        with _sndfile_lock:
+                            info = sf.info(file_path)
+                        duration = info.duration
+                    except Exception:
+                        data, sr = _load_audio(file_path)
+                        duration = len(data) / float(sr) if sr else 0.0
                 # Scale bar count with duration so long clips stay detailed
                 num_bars = min(max(int(duration * 20), 200), 2000)
                 waveform = generate_waveform(file_path, num_bars)
