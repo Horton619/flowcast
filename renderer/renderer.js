@@ -2538,15 +2538,59 @@ function bindSettingsListeners() {
     })
   }
 
-  // Update-ready banner — fires when electron-updater finishes downloading a new release
-  if (window.flowcast.onUpdateReady) {
-    window.flowcast.onUpdateReady(info => {
-      const banner = $('update-ready-banner')
-      const ver    = $('update-ready-version')
-      if (ver) ver.textContent = `v${info?.version || ''}`.trim()
-      if (banner) banner.style.display = 'flex'
-    })
+  // Update lifecycle — main forwards every electron-updater event here so the
+  // user sees: Checking → Downloading X% Y MB/s → Ready (+ banner) — instead of
+  // a single static "downloading in background" line that never moves.
+  const fmtMB    = b => (b / 1048576).toFixed(1)
+  const fmtSpeed = bps => bps > 1048576 ? `${(bps / 1048576).toFixed(1)} MB/s` : `${(bps / 1024).toFixed(0)} KB/s`
+  function paintUpdateStatus(msg) {
+    const statusEl = $('settings-update-status')
+    const progEl   = $('settings-update-progress')
+    const fillEl   = $('update-progress-fill')
+    const textEl   = $('update-progress-text')
+    const setProg  = (pct, line) => {
+      if (progEl) progEl.style.display = ''
+      if (fillEl) fillEl.style.width = `${Math.max(0, Math.min(100, pct))}%`
+      if (textEl) textEl.textContent = line
+    }
+    const hideProg = () => { if (progEl) progEl.style.display = 'none' }
+    switch (msg.type) {
+      case 'checking':
+        if (statusEl) statusEl.textContent = 'Checking GitHub Releases…'
+        hideProg()
+        break
+      case 'not-available':
+        if (statusEl) statusEl.textContent = 'You have the latest version.'
+        hideProg()
+        break
+      case 'available':
+        if (statusEl) statusEl.textContent = `Update available: v${msg.version} — downloading…`
+        setProg(0, 'Starting…')
+        break
+      case 'progress': {
+        const pct = msg.percent || 0
+        setProg(pct,
+          `${pct.toFixed(0)}%  ·  ${fmtMB(msg.transferred)} / ${fmtMB(msg.total)} MB  ·  ${fmtSpeed(msg.bytesPerSecond)}`)
+        break
+      }
+      case 'downloaded':
+        if (statusEl) statusEl.textContent = `v${msg.version} ready — see banner above.`
+        setProg(100, 'Download complete')
+        // Show the restart-now banner
+        const banner = $('update-ready-banner')
+        const ver    = $('update-ready-version')
+        if (ver) ver.textContent = `v${msg.version || ''}`.trim()
+        if (banner) banner.style.display = 'flex'
+        break
+      case 'error':
+        if (statusEl) statusEl.textContent = `Update error: ${msg.message}`
+        hideProg()
+        break
+    }
   }
+  if (window.flowcast.onUpdateStatus) window.flowcast.onUpdateStatus(paintUpdateStatus)
+
+  // Restart-now banner buttons
   const btnRestart = $('btn-update-restart')
   if (btnRestart && window.flowcast.installUpdateNow) {
     btnRestart.addEventListener('click', () => window.flowcast.installUpdateNow())
@@ -2564,18 +2608,14 @@ function bindSettingsListeners() {
   if (versionEl && window.flowcast.getAppVersion) {
     window.flowcast.getAppVersion().then(v => { versionEl.textContent = v || '—' }).catch(() => {})
   }
-  const btnUpdate    = $('btn-check-updates')
-  const updateStatus = $('settings-update-status')
+  const btnUpdate = $('btn-check-updates')
   if (btnUpdate && window.flowcast.checkForUpdates) {
     btnUpdate.addEventListener('click', () => {
       btnUpdate.disabled = true
-      if (updateStatus) updateStatus.textContent = 'Checking…'
-      window.flowcast.checkForUpdates().then(r => {
-        btnUpdate.disabled = false
-        if (!updateStatus) return
-        if (!r || !r.ok) updateStatus.textContent = `Could not check: ${r?.error || 'unknown error'}`
-        else if (r.available) updateStatus.textContent = `Update available: v${r.version} (downloading in background)`
-        else updateStatus.textContent = 'You have the latest version.'
+      // Fire and forget — the update-status events drive the visible state
+      // (checking → progress bar → ready). The promise just unblocks the button.
+      window.flowcast.checkForUpdates().finally(() => {
+        setTimeout(() => { btnUpdate.disabled = false }, 1000)
       })
     })
   }

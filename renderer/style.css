@@ -407,6 +407,32 @@ html, body {
 }
 .btn-update-dismiss:hover { color: #c4d4ff; background: rgba(61,126,255,0.10); }
 
+.settings-update-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.update-progress-bar {
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.update-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #3d7eff);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+.update-progress-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted, #7a85a0);
+  letter-spacing: 0.2px;
+}
+
 /* ── MAIN AREA ─────────────────────────────────────────────────────────────── */
 .main-area {
   position: fixed;

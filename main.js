@@ -188,14 +188,26 @@ app.whenReady().then(() => {
   autoUpdater.checkForUpdatesAndNotify().catch(() => {})
 })
 
-// When electron-updater finishes downloading a new release, tell the renderer
-// to show the "Restart now to finish updating" banner. Fires for both the
-// launch-time auto-check and the user clicking Settings → Check for updates.
-autoUpdater.on('update-downloaded', (info) => {
+// Forward every electron-updater lifecycle event to the renderer so it can
+// paint a live status (checking / downloading X% / ready / error) and show
+// the restart-now banner once the download completes.
+function sendUpdateStatus(payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('update-ready', { version: info.version })
+    mainWindow.webContents.send('update-status', payload)
   }
-})
+}
+autoUpdater.on('checking-for-update',  ()    => sendUpdateStatus({ type: 'checking' }))
+autoUpdater.on('update-available',     (i)   => sendUpdateStatus({ type: 'available', version: i.version }))
+autoUpdater.on('update-not-available', ()    => sendUpdateStatus({ type: 'not-available' }))
+autoUpdater.on('error',                (err) => sendUpdateStatus({ type: 'error', message: err?.message || String(err) }))
+autoUpdater.on('download-progress',    (p)   => sendUpdateStatus({
+  type:           'progress',
+  percent:        p.percent,
+  bytesPerSecond: p.bytesPerSecond,
+  transferred:    p.transferred,
+  total:          p.total,
+}))
+autoUpdater.on('update-downloaded',    (i)   => sendUpdateStatus({ type: 'downloaded', version: i.version }))
 
 app.on('before-quit', () => {
   if (backendProcess) backendProcess.kill()
