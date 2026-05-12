@@ -1,6 +1,6 @@
 {
   "name": "flowcast",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Audio cue playback for live events — Visual Entropy Productions",
   "main": "main.js",
   "homepage": "https://veproductions.net",
@@ -58,7 +58,11 @@
       "target": [
         { "target": "dmg", "arch": ["arm64"] }
       ],
-      "identity": null,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true,
       "extraResources": [
         { "from": "backend/dist/flowcast_backend", "to": "backend/flowcast_backend" }
       ]
