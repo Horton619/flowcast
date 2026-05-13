@@ -85,6 +85,22 @@ def play_cue(cue_id: str, file_path: str, in_point: float, out_point,
             send_log(f'Failed to open {file_path}: {e}', 'error')
             return
 
+        # If the user is on System Default and nothing else is playing, refresh
+        # PortAudio's view of the world before we open the stream. PortAudio
+        # caches the OS default device at Pa_Initialize() time — without this
+        # reinit, plugging/unplugging headphones after backend startup leaves
+        # the cue routing to whatever was default at launch, even though macOS
+        # has long since re-routed everything else. Safe only when there are
+        # no other live streams (reinit-with-active-streams SIGSEGVs).
+        if device_id is None:
+            with active_lock:
+                others_active = bool(active_cues)
+            if not others_active:
+                try:
+                    sd._terminate(); sd._initialize()
+                except Exception as e:
+                    send_log(f'play_cue: device refresh failed: {e}', 'warn')
+
         # _load_audio already returns 2-channel float32, but tolerate other shapes
         if data.ndim == 1:
             data = np.repeat(data[:, np.newaxis], 2, axis=1)
@@ -229,13 +245,32 @@ def play_cue(cue_id: str, file_path: str, in_point: float, out_point,
         if device_id:
             kwargs['device'] = device_id
 
-        try:
+        def _open_and_run(dev):
+            kwargs['device'] = dev if dev else None
+            if kwargs['device'] is None:
+                kwargs.pop('device', None)
             with sd.OutputStream(**kwargs) as stream:
-                # Wait until stream ends or this playback is stopped
                 while stream.active:
                     if my_info['stopped']:
                         break
                     time.sleep(0.05)
+        try:
+            _open_and_run(device_id)
+        except sd.PortAudioError as e:
+            # The saved device index is stale or the device just vanished. Try
+            # one fallback to System Default before reporting failure — this is
+            # what users expect (audio keeps working, just on a different output).
+            if device_id is not None:
+                send_log(f'Output device {device_id} failed ({e}); falling back to system default', 'warn')
+                send({'type': 'output_device_lost', 'id': cue_id, 'deviceId': device_id,
+                      'error': str(e), 'fellBackToDefault': True})
+                try:
+                    _open_and_run(None)
+                except sd.PortAudioError as e2:
+                    send_log(f'Output device error for {cue_id}: {e2}', 'error')
+            else:
+                send_log(f'Output device error for {cue_id}: {e}', 'error')
+                send({'type': 'output_device_lost', 'id': cue_id, 'deviceId': None, 'error': str(e)})
         except Exception as e:
             send_log(f'Playback error for {cue_id}: {e}', 'error')
         finally:
@@ -727,8 +762,14 @@ def handle_message(msg: dict):
         threading.Thread(target=_load, daemon=True).start()
 
     elif t == 'play':
-        raw_dev   = msg.get('device')
-        device_id = int(raw_dev) if raw_dev not in (None, '', 0) else None
+        raw_dev = msg.get('device')
+        # Renderer sometimes sends junk strings like 'undefined' / 'null' when
+        # a device dataset attribute was missing — treat all of those as "use
+        # System Default" rather than crashing on int('undefined').
+        try:
+            device_id = int(raw_dev) if raw_dev not in (None, '', 0, 'undefined', 'null', 'NaN') else None
+        except (TypeError, ValueError):
+            device_id = None
         play_cue(
             cue_id    = msg['id'],
             file_path = msg['filePath'],
@@ -796,8 +837,14 @@ def handle_message(msg: dict):
     elif t == 'test_tone':
         # Play a 1-second sine on the currently selected output device. Used by the
         # Settings "Play test tone" button to verify routing before a show.
-        raw_dev   = msg.get('device')
-        device_id = int(raw_dev) if raw_dev not in (None, '', 0) else None
+        raw_dev = msg.get('device')
+        # Renderer sometimes sends junk strings like 'undefined' / 'null' when
+        # a device dataset attribute was missing — treat all of those as "use
+        # System Default" rather than crashing on int('undefined').
+        try:
+            device_id = int(raw_dev) if raw_dev not in (None, '', 0, 'undefined', 'null', 'NaN') else None
+        except (TypeError, ValueError):
+            device_id = None
         def _tone():
             try:
                 sr  = 48000
@@ -830,6 +877,79 @@ def main():
             if _os.getppid() != _parent_pid:
                 _os._exit(0)   # reparented — original parent is gone
     threading.Thread(target=_parent_watchdog, daemon=True).start()
+
+    # Device-change poller — every 2s, check the output device list. When we
+    # detect a change (compared by NAME, since PortAudio device indices can
+    # shuffle on re-init), emit `devices_changed` so the renderer can refresh
+    # its dropdown and prompt to switch to a freshly-connected device or fall
+    # back to system default if the current one disappeared.
+    #
+    # While playback is active we must NOT call sd._terminate() — it frees
+    # PortAudio C state that live OutputStreams still hold and SIGSEGVs. So we
+    # only do the full reinit (which is what actually picks up newly-attached
+    # devices on macOS) when nothing is playing.
+    # Device-change poller — uses `system_profiler SPAudioDataType -json` on
+    # macOS, which reads CoreAudio's live device list directly (and tells us
+    # which device is the current System Default). This sidesteps PortAudio's
+    # cache entirely; cycling sd._terminate()/_initialize() from a worker
+    # thread crashed the backend with CoreAudio error -10851.
+    #
+    # Emits `devices_changed` with:
+    #   - devices:        current output device list (name + default flag)
+    #   - added/removed:  by-name diffs vs last poll
+    #   - defaultName:    name of the current system-default output
+    #   - defaultChanged: true if the default switched since last poll
+    import sys as _sys, subprocess as _sub
+    def _list_output_devices_macos():
+        try:
+            out = _sub.check_output(
+                ['/usr/sbin/system_profiler', 'SPAudioDataType', '-json'],
+                stderr=_sub.DEVNULL, timeout=4)
+            data = json.loads(out)
+            devs = []
+            for section in data.get('SPAudioDataType', []):
+                for item in section.get('_items', []):
+                    if not item.get('coreaudio_device_output'):  # output-capable only
+                        continue
+                    devs.append({
+                        'name':      item.get('_name', '?'),
+                        'isDefault': item.get('coreaudio_default_audio_output_device') == 'spaudio_yes',
+                    })
+            return devs
+        except Exception as e:
+            send_log(f'device_poll: system_profiler failed: {e}', 'warn')
+            return None
+    def _device_poll():
+        last_names = None
+        last_default = None
+        while True:
+            time.sleep(2)
+            if _sys.platform != 'darwin':
+                continue   # poller is macOS-only for now; Win users use Rescan
+            devs = _list_output_devices_macos()
+            if devs is None:
+                continue
+            cur_names    = {d['name'] for d in devs}
+            cur_default  = next((d['name'] for d in devs if d['isDefault']), None)
+            if last_names is None:
+                last_names   = cur_names
+                last_default = cur_default
+                continue
+            added   = [d for d in devs              if d['name'] not in last_names]
+            removed = [{'name': n} for n in (last_names - cur_names)]
+            default_changed = cur_default != last_default
+            if added or removed or default_changed:
+                send({
+                    'type':            'devices_changed',
+                    'devices':         devs,
+                    'added':           added,
+                    'removed':         removed,
+                    'defaultName':     cur_default,
+                    'defaultChanged':  default_changed,
+                })
+            last_names   = cur_names
+            last_default = cur_default
+    threading.Thread(target=_device_poll, daemon=True).start()
 
     send({
         'type':          'ready',

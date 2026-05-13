@@ -922,8 +922,11 @@ function fireCue(id) {
   const dur       = cue.outPoint != null ? (cue.outPoint - (cue.inPoint || 0)) : cue.duration
   const preWaitMs = Math.max(0, (cue.preWait || 0) * 1000)
 
-  // Reserve the slot immediately so Stop/Panic/Escape during pre-wait can cancel it
-  const slot = { startedAt: null, duration: dur || 0, preWaitTimer: null }
+  // Reserve the slot immediately so Stop/Panic/Escape during pre-wait can cancel it.
+  // `playFrom` is the file position playback starts from (in seconds, file-relative).
+  // Used by the device-swap snapshot to compute "where would this cue be right now
+  // if we hadn't stopped to swap devices?"
+  const slot = { startedAt: null, duration: dur || 0, preWaitTimer: null, playFrom: cue.inPoint || 0 }
   state.playingCues[id] = slot
 
   const sendPlay = () => {
@@ -958,16 +961,55 @@ function fireCue(id) {
   }
 }
 
+// Resume a cue mid-playback at a specific position on a specific device.
+// Used by the device-switch flow so a cue that was playing when the user
+// hit Switch picks up where it was on the newly-bound output. No fadeIn
+// (would clip the resumed audio); no preWait (already past the start).
+function fireCueAtPosition(cue, resumeAtSec, deviceId) {
+  if (!cue || !cue.filePath) return
+  const outPt = cue.outPoint != null ? cue.outPoint : (cue.duration || 0)
+  const remaining = Math.max(0, outPt - resumeAtSec)
+  if (remaining <= 0.05) return   // basically over — skip the re-fire
+  state.playingCues[cue.id] = { startedAt: Date.now(), duration: remaining, preWaitTimer: null, playFrom: resumeAtSec }
+  window.flowcast.sendToBackend({
+    type:     'play',
+    id:       cue.id,
+    filePath: cue.filePath,
+    inPoint:  resumeAtSec,
+    outPoint: cue.outPoint,
+    volume:   cue.volume || 0,
+    pan:      cue.pan    || 0,
+    fadeIn:   0,
+    fadeOut:  cue.fadeOut || 0,
+    loop:     !!cue.loop,
+    device:   deviceId || null,
+  })
+  renderCueList()
+  startNpLoop()
+  startProgressTimer(cue.id, remaining)
+}
+
 function startProgressTimer(id, duration) {
   const info = state.playingCues[id]
   if (!info) return
 
   const bar   = document.getElementById(`progress-${id}`)
-  const inPt  = getCueById(id)?.inPoint || 0
+  const cue0  = getCueById(id)
+  // Visual playhead anchor: use the actual file-position playback started from
+  // (info.playFrom) so a mid-cue rebind doesn't visually reset to inPoint=0.
+  // Falls back to cue.inPoint for the first play / safety.
+  const playFrom    = (info.playFrom != null) ? info.playFrom : (cue0?.inPoint || 0)
+  const cueInPoint  = cue0?.inPoint || 0
+  // For the cue-row progress bar we also need to know what fraction of the
+  // trimmed region has been used at this start point.
+  const trimDur     = (cue0 && cue0.outPoint != null) ? (cue0.outPoint - cueInPoint) : (cue0?.duration || duration)
+  const priorOffset = Math.max(0, playFrom - cueInPoint)
 
   const tick = () => {
     const elapsed = (Date.now() - info.startedAt) / 1000
-    const pct     = duration > 0 ? Math.min(elapsed / duration, 1) : 0
+    // pct relative to the FULL trimmed region, not just the remaining slice,
+    // so the progress bar visually continues from where it was pre-rebind
+    const pct = trimDur > 0 ? Math.min((priorOffset + elapsed) / trimDur, 1) : 0
 
     if (bar) bar.style.width = `${pct * 100}%`
 
@@ -975,7 +1017,7 @@ function startProgressTimer(id, duration) {
     if (id === state.selectedCueId && state.inspectorTab === 'time') {
       const cue = getCueById(id)
       if (cue) {
-        waveformState.playheadTime = inPt + elapsed
+        waveformState.playheadTime = playFrom + elapsed
         drawWaveform(cue)
       }
     }
@@ -1092,19 +1134,83 @@ function panic() {
 // ── BACKEND MESSAGES ───────────────────────────────────────────────────────────
 window.flowcast.onBackendMessage((msg) => {
   switch (msg.type) {
-    case 'ready':
+    case 'ready': {
       state.backendReady = true
-      populateOutputDevices(msg.outputDevices || [])
-      break
-
-    case 'devices_updated': {
-      populateOutputDevices(msg.outputDevices || [])
-      // Restore the saved selection if it still exists
-      const devSel = $('select-output-device')
-      if (devSel) devSel.value = state.project.settings.outputDevice || ''
-      if (msg.warning) alert(msg.warning)
+      const devs = msg.outputDevices || []
+      populateOutputDevices(devs)
+      // Resolve the saved output-device ID → name once at startup so future
+      // device-change events can detect "currently-selected device disappeared"
+      // even after PortAudio re-indexes.
+      const currentId = state.project.settings.outputDevice
+      const match = currentId ? devs.find(d => String(d.id) === String(currentId)) : null
+      state.lastKnownDeviceName = match ? match.name : ''
       break
     }
+
+    case 'devices_updated': {
+      const devs = msg.outputDevices || []
+      populateOutputDevices(devs)
+      const devSel = $('select-output-device')
+
+      // If the user just clicked Switch on the device-added banner, the rescan
+      // we triggered should have surfaced their target device in the PortAudio
+      // list. Resolve the saved name → real device ID and commit the bind.
+      // Keep the pending bind set on miss so a follow-up rescan (e.g. after
+      // stopAll completes asynchronously) can finish the job.
+      let bindAttempted = false   // true if either pendingBindName or pendingResume needed handling
+
+      if (state.pendingDeviceBindName) {
+        bindAttempted = true
+        const match = devs.find(d => d.name === state.pendingDeviceBindName)
+        if (match) {
+          state.project.settings.outputDevice = String(match.id)
+          state.lastKnownDeviceName = match.name
+          if (devSel) devSel.value = String(match.id)
+          window.flowcast.sendToBackend({ type: 'set_output_device', deviceId: String(match.id) })
+          markDirty()
+          state.pendingDeviceBindName = null
+          const banner = $('device-added-banner')
+          if (banner) { banner.style.display = 'none'; recalcBannerHeight() }
+        } else if (msg.warning) {
+          // Rescan was refused (still playing). Retry once after a beat — by
+          // now stopAll's stop messages should have drained from active_cues.
+          setTimeout(() => window.flowcast.sendToBackend({ type: 'rescan_devices' }), 300)
+        }
+      } else if (devSel) {
+        devSel.value = state.project.settings.outputDevice || ''
+      }
+
+      // Re-fire any cues that were playing when a device-swap was triggered.
+      // Covers BOTH the Switch button flow (pendingDeviceBindName resolved
+      // above) AND the System Default auto-rebind (no name, just re-fire on
+      // System Default — which has now been refreshed by the rescan).
+      if (state.pendingDeviceResume && state.pendingDeviceResume.length && !state.pendingDeviceBindName) {
+        bindAttempted = true
+        const deviceId = state.project.settings.outputDevice || null
+        if (!msg.warning) {
+          for (const r of state.pendingDeviceResume) {
+            const c = getCueById(r.id)
+            if (!c || !c.filePath) continue
+            fireCueAtPosition(c, r.resumeAt, deviceId ? String(deviceId) : null)
+          }
+          state.pendingDeviceResume = []
+          // Resume done — close the amber banner that prompted the rebind
+          const ab = $('device-default-banner')
+          if (ab) { ab.style.display = 'none'; recalcBannerHeight() }
+        } else {
+          // Rescan rejected (still playing) — retry shortly
+          setTimeout(() => window.flowcast.sendToBackend({ type: 'rescan_devices' }), 300)
+        }
+      }
+
+      // Suppress the "stop playback first" alert when a swap flow is in motion —
+      // we're auto-retrying. Show it for manual rescan only.
+      if (msg.warning && !bindAttempted) alert(msg.warning)
+      break
+    }
+
+    case 'devices_changed':       handleDevicesChanged(msg);   break
+    case 'output_device_lost':    handleOutputDeviceLost(msg); break
 
     case 'osc_started':
       state.oscConnected = true
@@ -1144,7 +1250,7 @@ window.flowcast.onBackendMessage((msg) => {
       oscDot.className = 'osc-dot error'
       oscLabel.textContent = 'OSC offline'
       const crashBanner = $('backend-crash-banner')
-      if (crashBanner) crashBanner.style.display = 'flex'
+      if (crashBanner) { crashBanner.style.display = 'flex'; recalcBannerHeight() }
       console.error('[backend] exited with code', msg.code)
       break
 
@@ -1234,6 +1340,206 @@ function populateOutputDevices(devices) {
     opt.textContent = d.name
     sel.appendChild(opt)
   })
+}
+
+// Backend poll (system_profiler-based on macOS) fires this whenever the audio
+// device list or system-default output changes. We:
+//   1. Always keep the Settings dropdown in sync with what's actually attached
+//   2. If the user had explicitly selected a device that just disappeared,
+//      fall back to System Default and show a red banner
+//   3. If a NEW device appeared, prompt with a blue banner ("Switch to it?")
+//   4. If the user is on System Default AND the OS default changed (the case
+//      where you unplug headphones and macOS silently reroutes to speakers),
+//      show an amber informational banner so they're never surprised about
+//      which speakers their audio is leaving the laptop through.
+function handleDevicesChanged(msg) {
+  const devices         = msg.devices         || []
+  const added           = msg.added           || []
+  const removed         = msg.removed         || []
+  const defaultName     = msg.defaultName     || null
+  const defaultChanged  = !!msg.defaultChanged
+
+  const prevSelectedId   = state.project.settings.outputDevice
+  const prevSelectedName = state.lastKnownDeviceName
+  populateOutputDevices(devices)
+  const devSel = $('select-output-device')
+
+  const stillThereByName = prevSelectedName && devices.some(d => d.name === prevSelectedName)
+  const stillThereById   = prevSelectedId   && devices.some(d => String(d.id) === String(prevSelectedId))
+  if (prevSelectedId && !stillThereByName && !stillThereById) {
+    state.project.settings.outputDevice = ''
+    state.lastKnownDeviceName = ''
+    if (devSel) devSel.value = ''
+    showDeviceLostBanner(prevSelectedName || 'Output device')
+    markDirty()
+  } else {
+    // Re-resolve ID by name in case the device list re-indexed
+    if (prevSelectedName) {
+      const match = devices.find(d => d.name === prevSelectedName)
+      if (match && String(match.id) !== String(prevSelectedId)) {
+        state.project.settings.outputDevice = String(match.id)
+        if (devSel) devSel.value = String(match.id)
+      } else if (devSel) {
+        devSel.value = prevSelectedId || ''
+      }
+    } else if (devSel) {
+      devSel.value = prevSelectedId || ''
+    }
+  }
+
+  // Only prompt to bind to a new device if the user had explicitly chosen a
+  // specific output before. If they're on System Default, macOS already
+  // auto-routes to the new device and binding to a specific ID would actively
+  // sabotage that — PortAudio indices can shift and a stale ID later fails.
+  if (added.length && prevSelectedId) showDeviceAddedBanner(added)
+
+  // User on System Default + the underlying default just switched. We
+  // deliberately do NOT touch any in-flight cue here — PortAudio can't
+  // redirect an open stream, so any rebind requires close+reopen, which
+  // means an audible gap and a perceived "restart." macOS already handles
+  // the unplug case seamlessly at its own level (open streams on the
+  // default device get transparently rerouted to the next available
+  // device). For the plug-in case we leave the current cue on its current
+  // device until it ends; the next cue start will pick up the new default
+  // because of the pre-cue PortAudio refresh in the backend. The amber
+  // banner just tells the user where audio is currently routed.
+  if (!prevSelectedId && defaultChanged && defaultName) {
+    // If the new default is a freshly-attached device (plug-in), automatically
+    // rebind any live simple cue over to it — same logic as the manual Rebind
+    // button. macOS already handled the unplug→fallback case at its own level
+    // (open streams transparently rerouted to the next available device), so
+    // we skip the rebind there to avoid an unnecessary ~200ms gap.
+    const fromPlugIn = added.some(d => d.name === defaultName)
+    showDefaultChangedBanner(defaultName, false)   // banner only, no button
+    if (fromPlugIn && hasLiveSimpleCue()) triggerLiveRebind()
+  }
+}
+
+function hasLiveSimpleCue() {
+  return Object.keys(state.playingCues).some(id => {
+    const c = getCueById(id)
+    const info = state.playingCues[id]
+    return c && c.type !== 'combo' && info && info.startedAt
+  })
+}
+
+// Snapshot all live simple cues at their current file positions, stop them,
+// trigger a PortAudio refresh, and re-fire each at the saved position on the
+// new system default. Shared by auto-detect (plug-in) and the manual button.
+function triggerLiveRebind() {
+  const resume = []
+  for (const cueId of Object.keys(state.playingCues)) {
+    const info = state.playingCues[cueId]
+    const c    = getCueById(cueId)
+    if (!c || !info || !info.startedAt) continue
+    if (c.type === 'combo') continue
+    const playFrom = (info.playFrom != null) ? info.playFrom : (c.inPoint || 0)
+    const elapsed  = (Date.now() - info.startedAt) / 1000
+    resume.push({ id: c.id, resumeAt: playFrom + elapsed })
+  }
+  if (!resume.length) return
+  state.pendingDeviceResume = resume
+  stopAll()
+  window.flowcast.sendToBackend({ type: 'rescan_devices' })
+}
+
+function handleOutputDeviceLost(msg) {
+  // Mid-playback stream death — backend has already given up the cue.
+  // Clear our renderer-side bookkeeping so transport state matches reality,
+  // and surface the same red banner we'd show on a detected unplug.
+  const cueId = msg.id
+  const info  = state.playingCues[cueId]
+  if (info) {
+    if (info.timer)        cancelAnimationFrame(info.timer)
+    if (info.preWaitTimer) clearTimeout(info.preWaitTimer)
+    if (info.clipTimers)   info.clipTimers.forEach(clearTimeout)
+    delete state.playingCues[cueId]
+  }
+  clearPendingAutoFires()
+  renderCueList()
+  // Fall back to System Default for the next cue
+  state.project.settings.outputDevice = ''
+  state.lastKnownDeviceName = ''
+  const devSel = $('select-output-device')
+  if (devSel) devSel.value = ''
+  showDeviceLostBanner('Output device')
+  markDirty()
+}
+
+// Walks every known banner and updates the --banner-h CSS variable so the
+// main-area shifts down by the total banner height. Banners are static blocks
+// in document flow below the header; without this they'd be hidden by the
+// position:fixed main-area on top of them.
+const BANNER_IDS = [
+  'backend-crash-banner',
+  'device-added-banner',
+  'device-lost-banner',
+  'device-default-banner',
+  'update-ready-banner',
+]
+function recalcBannerHeight() {
+  let total = 0
+  for (const id of BANNER_IDS) {
+    const el = document.getElementById(id)
+    if (el && el.style.display !== 'none' && el.offsetHeight) total += el.offsetHeight
+  }
+  document.documentElement.style.setProperty('--banner-h', `${total}px`)
+}
+
+function showDeviceAddedBanner(added) {
+  const banner    = $('device-added-banner')
+  const nameEl    = $('device-added-name')
+  const btnSwitch = $('btn-device-switch')
+  if (!banner || !nameEl) return
+  const dev = added[0]   // if multiple appeared at once, just prompt for the first
+  nameEl.textContent = dev.name
+  banner.dataset.deviceId   = dev.id
+  banner.dataset.deviceName = dev.name
+  banner.style.display = 'flex'
+  recalcBannerHeight()
+  if (btnSwitch) btnSwitch.focus()
+}
+
+function showDeviceLostBanner(name) {
+  const banner = $('device-lost-banner')
+  const nameEl = $('device-lost-name')
+  if (!banner || !nameEl) return
+  nameEl.textContent = name
+  banner.style.display = 'flex'
+  recalcBannerHeight()
+  // Auto-dismiss after 10 seconds — the message has served its purpose
+  setTimeout(() => {
+    if (banner) { banner.style.display = 'none'; recalcBannerHeight() }
+  }, 10000)
+}
+
+function showDefaultChangedBanner(name, offerRebind = false) {
+  const banner = $('device-default-banner')
+  const nameEl = $('device-default-name')
+  const btnRebind = $('btn-device-rebind')
+  if (!banner || !nameEl) return
+  nameEl.textContent = name
+  // Rebind button only when (1) caller flagged this as a plug-in event AND
+  // (2) there's actually a live simple cue we could swap over.
+  const hasLiveSimpleCue = Object.keys(state.playingCues).some(id => {
+    const c = getCueById(id)
+    const info = state.playingCues[id]
+    return c && c.type !== 'combo' && info && info.startedAt
+  })
+  if (btnRebind) {
+    btnRebind.style.display = (offerRebind && hasLiveSimpleCue) ? '' : 'none'
+    btnRebind.disabled      = false
+  }
+  banner.style.display = 'flex'
+  recalcBannerHeight()
+  // Auto-dismiss after 12s if not rebinding; longer than the pure-info case
+  // since the user may want a beat to decide.
+  setTimeout(() => {
+    if (banner && banner.style.display !== 'none') {
+      banner.style.display = 'none'
+      recalcBannerHeight()
+    }
+  }, 12000)
 }
 
 function handleOscCommand(msg) {
@@ -1376,8 +1682,75 @@ function bindInspectorFields() {
   // Output device
   $('select-output-device').addEventListener('change', (e) => {
     state.project.settings.outputDevice = e.target.value
+    // Remember the device name so we can detect "current device disappeared"
+    // even after PortAudio re-indexes the IDs.
+    const opt = e.target.options[e.target.selectedIndex]
+    state.lastKnownDeviceName = (opt && opt.value) ? opt.textContent : ''
     markDirty()
     window.flowcast.sendToBackend({ type: 'set_output_device', deviceId: e.target.value })
+  })
+
+  // Device-added banner Switch button.
+  // The system_profiler poll doesn't give us PortAudio device indices — only
+  // names. To bind playback to a newly-attached device we need a real PortAudio
+  // index, which means asking the backend to rescan (re-init PortAudio so the
+  // new device shows up in its list). That rescan is refused while audio is
+  // playing (it'd SIGSEGV the active stream), so we stop everything first.
+  // Once the devices_updated response arrives we resolve the device by name →
+  // ID in that handler and finish the bind.
+  const devSwitchBtn = $('btn-device-switch')
+  if (devSwitchBtn) {
+    devSwitchBtn.addEventListener('click', () => {
+      const banner = $('device-added-banner')
+      if (!banner) return
+      const name = banner.dataset.deviceName
+      state.pendingDeviceBindName = name
+
+      // Snapshot any in-flight simple-cue playback so we can resume on the new
+      // device right after the rescan completes. Combos are skipped because
+      // their multi-clip offset choreography is awkward to re-fire mid-stream;
+      // they'll just stop. Gap during the swap is ~200–500ms — PortAudio reinit
+      // can't happen with a live stream open.
+      const resume = []
+      for (const cueId of Object.keys(state.playingCues)) {
+        const info = state.playingCues[cueId]
+        const c    = getCueById(cueId)
+        if (!c || !info || !info.startedAt) continue
+        if (c.type === 'combo') continue
+        // playFrom is the actual file position this cue started playing from.
+        // Falls back to inPoint if missing (older slot shapes / safety).
+        const playFrom = (info.playFrom != null) ? info.playFrom : (c.inPoint || 0)
+        const elapsed  = (Date.now() - info.startedAt) / 1000
+        resume.push({ id: c.id, resumeAt: playFrom + elapsed })
+      }
+      state.pendingDeviceResume = resume
+
+      devSwitchBtn.disabled = true
+      stopAll()
+      window.flowcast.sendToBackend({ type: 'rescan_devices' })
+      setTimeout(() => { devSwitchBtn.disabled = false }, 2000)
+    })
+  }
+  const dismiss = id => () => {
+    const banner = $(id)
+    if (banner) { banner.style.display = 'none'; recalcBannerHeight() }
+  }
+  $('btn-device-dismiss')?.addEventListener('click',         dismiss('device-added-banner'))
+  $('btn-device-lost-dismiss')?.addEventListener('click',    dismiss('device-lost-banner'))
+  $('btn-device-default-dismiss')?.addEventListener('click', dismiss('device-default-banner'))
+
+  // On-demand rebind: user has decided to accept a ~200ms gap to swap the
+  // currently-playing cue over to the new default device. Snapshot positions,
+  // stop everything, rescan PortAudio so it sees the new default, then re-fire
+  // each cue at exactly where it was when the click landed.
+  // Manual rebind button — still wired up so it's available if we ever surface
+  // it again (currently the banner shows it with display:none, since the
+  // auto-rebind handles the plug-in case without user action).
+  $('btn-device-rebind')?.addEventListener('click', () => {
+    const btn = $('btn-device-rebind')
+    if (btn) btn.disabled = true
+    triggerLiveRebind()
+    setTimeout(() => { if (btn) btn.disabled = false }, 2000)
   })
 
   // Rescan devices — re-initialise PortAudio in the backend and refresh the dropdown
@@ -1678,10 +2051,20 @@ function updateNowPlaying() {
     comboEl.style.display = 'none'
   }
 
-  // Times
-  const elapsed  = isPlaying && activeInfo ? (Date.now() - activeInfo.startedAt) / 1000 : 0
-  const duration = isPlaying && activeInfo ? activeInfo.duration
-                 : (displayCue ? (displayCue.totalDur || displayCue.duration || 0) : 0)
+  // Times — fold in any prior offset from a mid-cue device rebind so the
+  // elapsed/remaining/waveform-playhead reflect total time into the cue from
+  // when GO was pressed, not time since the latest re-fire on a new device.
+  const cueInPoint  = activeCue?.inPoint || 0
+  const playFrom    = (activeInfo && activeInfo.playFrom != null) ? activeInfo.playFrom : cueInPoint
+  const priorOff    = Math.max(0, playFrom - cueInPoint)
+  const sessElapsed = isPlaying && activeInfo ? (Date.now() - activeInfo.startedAt) / 1000 : 0
+  const elapsed     = priorOff + sessElapsed
+  const fullTrimDur = activeCue
+    ? (activeCue.outPoint != null ? (activeCue.outPoint - cueInPoint) : (activeCue.duration || 0))
+    : 0
+  const duration = isPlaying
+    ? fullTrimDur
+    : (displayCue ? (displayCue.totalDur || displayCue.duration || 0) : 0)
   const remaining = Math.max(0, duration - elapsed)
 
   $('np-elapsed').textContent   = isPlaying ? formatTime(elapsed)           : (displayCue ? formatTime(0) : '—')
@@ -2588,7 +2971,7 @@ function bindSettingsListeners() {
         const banner = $('update-ready-banner')
         const ver    = $('update-ready-version')
         if (ver) ver.textContent = `v${msg.version || ''}`.trim()
-        if (banner) banner.style.display = 'flex'
+        if (banner) { banner.style.display = 'flex'; recalcBannerHeight() }
         break
       case 'error':
         if (statusEl) statusEl.textContent = `Update error: ${msg.message}`
@@ -2607,7 +2990,7 @@ function bindSettingsListeners() {
   if (btnDismiss) {
     btnDismiss.addEventListener('click', () => {
       const banner = $('update-ready-banner')
-      if (banner) banner.style.display = 'none'
+      if (banner) { banner.style.display = 'none'; recalcBannerHeight() }
     })
   }
 

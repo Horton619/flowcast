@@ -213,6 +213,43 @@
     Audio engine stopped — restart FlowCast to resume playback
   </div>
 
+  <!-- New audio device detected — prompt user before switching -->
+  <div class="device-added-banner" id="device-added-banner" style="display:none">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+      <path d="M3 8a5 5 0 0110 0v4a1 1 0 01-1 1h-1v-4h2M3 8v4a1 1 0 001 1h1V9H3"
+            stroke="#3d7eff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>New audio output detected: <span id="device-added-name">…</span>. Switch to it?</span>
+    <button class="btn-update-restart" id="btn-device-switch"  type="button">Switch</button>
+    <button class="btn-update-dismiss" id="btn-device-dismiss" type="button" title="Keep current output">✕</button>
+  </div>
+
+  <!-- Output device disconnected mid-session or mid-cue — auto-fell-back to System Default -->
+  <div class="device-lost-banner" id="device-lost-banner" style="display:none">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+      <path d="M3 13L13 3M3 8a5 5 0 015-5" stroke="#ff4757" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <span><span id="device-lost-name">Output device</span> disconnected. Switched to System Default.</span>
+    <button class="btn-update-dismiss" id="btn-device-lost-dismiss" type="button" title="Dismiss">✕</button>
+  </div>
+
+  <!-- System default output changed. Informational unless a cue is playing,
+       in which case offer an on-demand rebind (brief ~200ms gap, resumes at
+       the current playhead position on the new default device). -->
+  <div class="device-default-banner" id="device-default-banner" style="display:none">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+      <path d="M2 5h3l4-3v12L5 11H2z" stroke="#ffb800" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M11 6q1 2 0 4" stroke="#ffb800" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <span>Audio output is now <span id="device-default-name">…</span></span>
+    <button class="btn-device-rebind" id="btn-device-rebind" type="button"
+            style="display:none"
+            title="Stop and resume the playing cue on the new output. Brief audio gap.">
+      ⤴ Rebind playback
+    </button>
+    <button class="btn-update-dismiss" id="btn-device-default-dismiss" type="button" title="Dismiss">✕</button>
+  </div>
+
   <!-- Update-ready banner — shown after electron-updater finishes downloading a new release -->
   <div class="update-ready-banner" id="update-ready-banner" style="display:none">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">

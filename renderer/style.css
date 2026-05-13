@@ -33,6 +33,7 @@
   --footer-h: 32px;
   --toolbar-h: 38px;
   --inspector-h: 260px;
+  --banner-h: 0px;   /* set to the banner's height (~40px) by JS while a banner is visible so .main-area shifts down to keep the content visible */
 }
 
 /* ── RESET ─────────────────────────────────────────────────────────────────── */
@@ -407,6 +408,77 @@ html, body {
 }
 .btn-update-dismiss:hover { color: #c4d4ff; background: rgba(61,126,255,0.10); }
 
+/* New-device-detected banner — same shape as the update-ready banner */
+.device-added-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: rgba(61, 126, 255, 0.10);
+  border-bottom: 1px solid rgba(61, 126, 255, 0.45);
+  color: #c4d4ff;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+  user-select: none;
+}
+.device-added-banner span:first-of-type { flex: 1; }
+.device-added-banner #device-added-name { color: #fff; font-weight: 700; }
+
+/* Output-device-lost banner — red, mirrors backend-crash-banner */
+.device-lost-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: #1a0a0c;
+  border-bottom: 1px solid #ff4757;
+  color: #ff8a93;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+  user-select: none;
+}
+.device-lost-banner span:first-of-type { flex: 1; }
+.device-lost-banner #device-lost-name { color: #fff; font-weight: 700; }
+.device-lost-banner .btn-update-dismiss { color: #ff8a93; }
+.device-lost-banner .btn-update-dismiss:hover { color: #fff; background: rgba(255,71,87,0.15); }
+
+/* System default output changed — informational amber */
+.device-default-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: rgba(255, 184, 0, 0.10);
+  border-bottom: 1px solid rgba(255, 184, 0, 0.45);
+  color: #ffd86b;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+  user-select: none;
+}
+.device-default-banner span:first-of-type { flex: 1; }
+.device-default-banner #device-default-name { color: #fff; font-weight: 700; }
+.device-default-banner .btn-update-dismiss { color: #ffd86b; }
+.device-default-banner .btn-update-dismiss:hover { color: #fff; background: rgba(255,184,0,0.15); }
+
+.btn-device-rebind {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid #ffb800;
+  background: #ffb800;
+  color: #1a1308;
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+.btn-device-rebind:hover { filter: brightness(1.12); }
+.btn-device-rebind:disabled { cursor: default; opacity: 0.7; }
+
 .settings-update-progress {
   display: flex;
   flex-direction: column;
@@ -436,7 +508,7 @@ html, body {
 /* ── MAIN AREA ─────────────────────────────────────────────────────────────── */
 .main-area {
   position: fixed;
-  top: var(--header-h);
+  top: calc(var(--header-h) + var(--banner-h, 0px));
   bottom: var(--footer-h);
   left: 0;
   right: 0;

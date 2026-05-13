@@ -1,6 +1,6 @@
 {
   "name": "flowcast",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Audio cue playback for live events — Visual Entropy Productions",
   "main": "main.js",
   "homepage": "https://veproductions.net",
