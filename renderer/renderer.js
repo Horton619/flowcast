@@ -1,5 +1,33 @@
 'use strict'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FlowCast renderer — cue list, transport, inspector, hotkeys, device handling.
+//
+// ⚠ Before editing, load the relevant doc:
+//     docs/CUE_LIFECYCLE.md   — state.playingCues, fireCue/fireCombo/fireCueAtPosition,
+//                                stopAll/panic, cueDone idempotency, scheduleAutoFire
+//     docs/DEVICE_CHANGES.md  — handleDevicesChanged, triggerLiveRebind, playFrom math,
+//                                the three banner types and when each shows
+//     docs/IPC.md             — window.flowcast.* surface, backend message routing
+//     docs/AUTO_UPDATE.md     — paintUpdateStatus, update-ready banner
+//
+// Key invariants (full discussion in the topic docs above):
+//   • state.playingCues is the SOLE source of truth for "is this cue playing?"
+//     Existence in the dict = playing or scheduled. Removal = done or stopped.
+//   • Each entry's playFrom is the FILE-absolute position playback started from.
+//     UI playhead = info.playFrom + (now - startedAt)/1000, NOT cue.inPoint + elapsed.
+//     A naive cue.inPoint + elapsed resets the visual playhead on every re-fire.
+//   • cueDone(id) is idempotent — early returns if !state.playingCues[id].
+//     Called from BOTH the JS progress timer (pct>=1) and the backend cue_done message.
+//     Without the guard, auto-follow fires the next cue twice.
+//   • Auto-fire chains (Play With / Auto-Play Next) go through scheduleAutoFire(),
+//     which registers in pendingAutoFireTimers so stopAll / panic can clear them.
+//     Direct setTimeout(() => go(true), delay) silently fires after Stop — don't do it.
+//   • Banners (backend-crash, device-added/lost/default, update-ready) are static
+//     siblings of .main-area, which is position:fixed. Show/hide must call
+//     recalcBannerHeight() to update the --banner-h CSS var that shifts main down.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── STATE ──────────────────────────────────────────────────────────────────────
 const state = {
   project: {
@@ -1038,9 +1066,10 @@ function startProgressTimer(id, duration) {
 }
 
 function cueDone(id) {
-  // Idempotent: cueDone fires both from the JS progress timer (100%) and the
-  // backend's cue_done message. Without this guard, auto-follow would schedule
-  // go(true) twice and fire the next cue plus the cue after that.
+  // ⚠ DO NOT remove the guard below — cueDone fires from BOTH the JS progress timer
+  // (when elapsed hits 100%) AND the backend's cue_done message. Removing the early
+  // return causes auto-follow to schedule go(true) twice and fire two cues. See
+  // docs/CUE_LIFECYCLE.md.
   if (!state.playingCues[id]) return
   const cue  = getCueById(id)
   const info = state.playingCues[id]
@@ -1085,6 +1114,9 @@ function stopCue(id) {
 }
 
 function stopAll() {
+  // ⚠ DO NOT remove clearPendingAutoFires() — Play With / Auto-Play Next chains
+  // schedule setTimeout(go(true), delay). Without clearing them, Stop "works" on
+  // the current cue but the chained next cue fires after Stop. See docs/CUE_LIFECYCLE.md.
   clearPendingAutoFires()
   Object.keys(state.playingCues).forEach(id => stopCue(id))
   if (state.paused) {

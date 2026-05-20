@@ -1,3 +1,22 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Preload — the security boundary between the (Node-less) renderer and main.
+//
+// ⚠ Before editing, load docs/IPC.md.
+//
+// Renderer runs with contextIsolation:true, nodeIntegration:false. This file
+// is the ONLY surface the renderer can use to reach Electron / Node / the
+// backend subprocess. Every capability is exposed via window.flowcast.*.
+//
+// To add a new capability:
+//   1. ipcMain.handle('foo-bar', ...) in main.js
+//   2. fooBar: (...args) => ipcRenderer.invoke('foo-bar', ...args)  here
+//   3. window.flowcast.fooBar(...)  in renderer.js
+//
+// Use invoke (promise-returning) for both renderer→main calls AND main→renderer
+// event subscriptions (via ipcRenderer.on inside a wrapper). Don't add raw
+// `send` — promises keep the API uniform.
+// ─────────────────────────────────────────────────────────────────────────────
+
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('flowcast', {

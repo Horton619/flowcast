@@ -1,3 +1,27 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Electron main process — spawns the Python backend, owns IPC routing, menu,
+// window lifecycle, auto-updater wiring.
+//
+// ⚠ Before editing, load the relevant doc:
+//     docs/IPC.md          — backend stdin/stdout, line-delimited JSON,
+//                             pendingBackendMessages, renderer-ready signal,
+//                             contextBridge surface
+//     docs/AUTO_UPDATE.md  — autoUpdater.* event forwarding, the update-status
+//                             single-channel pattern, restart-now banner
+//
+// Key invariants (full discussion in the topic docs above):
+//   • Backend stdout uses readline.createInterface — NOT raw stdout.on('data').
+//     Large JSON payloads (waveforms ~20KB) chunk across data events; readline
+//     buffers until newline. The combo clip duration bug came from missing this.
+//   • Every webContents.send must be guarded by mainWindow && !isDestroyed().
+//     stderr / exit events can arrive after window close.
+//   • All electron-updater events route through ONE 'update-status' IPC channel.
+//     Renderer subscribes once via window.flowcast.onUpdateStatus.
+//   • Window close prompts for unsaved changes (Save / Don't Save / Cancel) when
+//     projectDirty is true. userConfirmedQuit suppresses re-prompting after the
+//     dialog already ran.
+// ─────────────────────────────────────────────────────────────────────────────
+
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
@@ -49,6 +73,10 @@ function startBackend() {
 
   backendProcess = spawn(exe, args, { stdio: ['pipe', 'pipe', 'pipe'] })
 
+  // ⚠ DO NOT replace readline.createInterface with stdout.on('data') + manual
+  // splitting. Backend file_loaded messages contain ~20KB waveform JSON which
+  // chunks across multiple data events; JSON.parse on a fragment silently
+  // discards it. readline buffers until newline. See docs/IPC.md.
   const rl = readline.createInterface({ input: backendProcess.stdout })
   rl.on('line', (line) => {
     if (!line.trim()) return

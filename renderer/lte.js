@@ -1,5 +1,28 @@
 'use strict'
-// lte.js — Linear Timeline Editor (Combo Cue builder)
+// ─────────────────────────────────────────────────────────────────────────────
+// Linear Timeline Editor (Combo Cue builder).
+//
+// ⚠ Before editing, load docs/LTE.md.
+//
+// Self-contained module. Opens as a full-screen overlay (not a separate window).
+// State lives on the module-level lteState object — fully separate from
+// state.playingCues etc. in renderer.js. Loaded AFTER renderer.js by index.html;
+// any renderer→LTE call site uses `typeof lteHandleWaveformLoaded === 'function'`
+// guards because of the load order.
+//
+// Key invariants (full discussion in docs/LTE.md):
+//   • lteState.clips is a deep clone of cue.clips. Mutating it does NOT touch
+//     project cues until lteSave commits.
+//   • Trim drag uses a FROZEN anchor at lteState.trimDragAnchorX. During drag,
+//     only clip.inPoint / clip.outPoint change — clip.offset stays put. On
+//     mouseup, offset is committed to startOff + (inPoint - drag.startIn) so
+//     the clip body lands exactly where the marker was. No visual snap.
+//   • The expanded (trim-drag) view in lteDrawLane MUST return early — it
+//     does NOT fall through to the normal draw path. Falling through overdraws
+//     the body at the wrong x.
+//   • At-rest waveform shows only the trimmed slice — peaks are sampled from
+//     (inPoint/duration * dLen) → (outPoint/duration * dLen), not the full file.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────────
 const LTE_RULER_H = 32
@@ -1039,7 +1062,10 @@ function lteBindCanvas() {
 
   function onUp() {
     if (lteState.trimDragIdx !== null) {
-      // Commit the offset so the clip body lands exactly where the in-marker was
+      // ⚠ DO NOT move this offset commit into onMove. It MUST be on mouseup only.
+      // During drag, clip.offset stays frozen so the context waveform doesn't shift;
+      // the marker moves alone. On release, this formula places the clip body at the
+      // exact x position the marker was at, eliminating the visual snap. See docs/LTE.md.
       if (drag && drag.type === 'trimIn') {
         const clip = lteState.clips[drag.idx]
         if (clip) clip.offset = Math.max(0, drag.startOff + (clip.inPoint - drag.startIn))

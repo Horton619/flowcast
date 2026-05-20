@@ -1,6 +1,25 @@
 """
-FlowCast backend — Python audio engine + OSC server
-Communicates with Electron renderer via stdin/stdout newline-delimited JSON.
+FlowCast backend — Python audio engine + OSC server.
+
+⚠ Before editing, load the relevant doc:
+    docs/AUDIO_ENGINE.md     — play_cue, _load_audio, the callback, gain ramping, _sndfile_lock
+    docs/DEVICE_CHANGES.md   — _device_poll, rescan_devices, sd._terminate/_initialize rules
+    docs/OSC.md              — start_osc_server, SLIP framing, Companion handshake
+
+This file is one process talking to two protocols:
+    • stdin/stdout JSON      — Electron main reads it line-by-line via readline (see docs/IPC.md)
+    • OSC on port 53000      — TCP (SLIP-framed) + UDP, both running simultaneously
+
+Key invariants (full discussion in the topic docs above):
+    • libsndfile is NOT thread-safe. Every sf.read / sf.info goes through _sndfile_lock.
+    • The playback callback closure-captures my_info; it does NOT look up active_cues[cue_id] per frame.
+    • A second play_cue for the same id marks the old my_info stopped before replacing the slot.
+    • cleanup pops active_cues[cue_id] only if it's still us (identity check) — see the finally block.
+    • sd._terminate(); sd._initialize() is SAFE only when no streams are active.
+      OK from: rescan_devices handler, play_cue pre-stream refresh (when idle).
+      NOT OK from: the poll thread on a recurring schedule (SIGSEGVs).
+    • Device detection uses system_profiler, not sd.query_devices() (which caches).
+    • OSC commands are forwarded to the renderer as 'osc_command' messages, not handled here.
 """
 
 import sys
@@ -45,6 +64,9 @@ _AUDIOREAD_EXT = ('.m4a', '.aac', '.mp4', '.m4b')
 def _load_audio(file_path: str):
     """Return (data float32 [N×2], samplerate). Raises on failure."""
     ext = file_path.lower().rsplit('.', 1)[-1]
+    # ⚠ DO NOT route m4a/aac through libsndfile. They use a container format
+    # libsndfile can't decode — audioread + CoreAudio is the working path on macOS.
+    # See docs/AUDIO_ENGINE.md.
     if ('.' + ext) in _AUDIOREAD_EXT:
         return _load_via_audioread(file_path)
     try:
@@ -97,6 +119,9 @@ def play_cue(cue_id: str, file_path: str, in_point: float, out_point,
                 others_active = bool(active_cues)
             if not others_active:
                 try:
+                    # ⚠ DO NOT remove — refreshes PortAudio's cached default device so a
+                    # cue picks up devices plugged in after backend startup. SAFE only
+                    # because we just verified active_cues is empty. See docs/DEVICE_CHANGES.md.
                     sd._terminate(); sd._initialize()
                 except Exception as e:
                     send_log(f'play_cue: device refresh failed: {e}', 'warn')
@@ -277,6 +302,9 @@ def play_cue(cue_id: str, file_path: str, in_point: float, out_point,
             # Only clear the slot and emit cue_done if WE are still the active playback
             # (a fresh play_cue for the same id may have replaced us — don't clobber it)
             with active_lock:
+                # ⚠ DO NOT "simplify" to `if cue_id in active_cues`. Must be identity
+                # check (`is`) — a fresh play_cue for the same id replaced our entry
+                # and we'd pop their dict. See docs/AUDIO_ENGINE.md.
                 if active_cues.get(cue_id) is my_info:
                     active_cues.pop(cue_id, None)
                     superseded = False
